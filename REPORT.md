@@ -46,8 +46,10 @@ probably to pass "allow AI crawlers" rules. Because it runs from Google Cloud, i
 ## Recommended detection signals
 
 1. **Identity vs. network.** A declared crawler must match its operator's published IP
-   ranges or forward-confirmed reverse DNS, not just the AS name. Would have flagged all
-   6 scanners and all 39 fake Jetpack clients.
+   ranges or forward-confirmed reverse DNS, not just the AS name. It would flag the 6
+   scanners, whose Googlebot claim comes from Google Cloud rather than Google's crawler
+   network (not yet tested against the published lists); the 39 fake Jetpack clients are
+   already caught by the network check.
 2. **Identity rotation.** More than a handful of distinct crawler names from one IP in a
    short window is never legitimate (here: 24 names in 12 s).
 3. **Login velocity per target, across IPs.** Count authentication attempts per endpoint
