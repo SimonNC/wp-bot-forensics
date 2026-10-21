@@ -11,6 +11,11 @@ detector as a safety net.
   archived daily on the server since 2026-10-13.
 - **Not versioned**: raw logs (`data/raw/`). A one-day pseudonymised sample is
   versioned in `data/sample/` for CI and public demo.
+- **WP Cerber exports** (`data/raw/cerber/`, not versioned): activity log
+  (events and Cerber verdicts: lockouts, forbidden URLs, vulnerable-code scans,
+  refused form submissions, login failures) and HTTP requests log, both since
+  2026-09-28. Timestamps read from the `Unix Timestamp` column (display dates
+  are localised).
 - **Enrichment**: [DB-IP IP to ASN Lite](https://db-ip.com/db/download/ip-to-asn-lite)
   (CC BY 4.0, attribution in `NOTICE`).
 - **Optional (day 3)**: [SecRepo self.logs](https://www.secrepo.com/self.logs/)
@@ -19,6 +24,8 @@ detector as a safety net.
 - **Privacy**: IPs are replaced by HMAC-SHA256 (secret key from `.env`) at parse
   time, after ASN/country lookup. No clear IP reaches Elasticsearch, Parquet or
   screenshots. The site name is a config value so it can be anonymised in one line.
+  Usernames are hashed the same way, and the site's custom login URL is a
+  security secret: it is replaced by `/<custom-login>/` everywhere.
 
 ## Known biases
 
@@ -28,12 +35,17 @@ detector as a safety net.
   the analysis measures attacker intent, not successful intrusions.
 - Part of the traffic is our own (uptime monitors, WP-cron, admin sessions) and
   is classified as `internal`, excluded from the bot share.
+- Each defence layer sees part of the traffic: Apache rejects most `xmlrpc.php`
+  POSTs (5,629 in Apache logs) before PHP runs, so Cerber logs only 19 XML-RPC
+  refusals. Cross-referencing both is a finding in itself (README section
+  "What each defence layer sees").
 
 ## Pipeline
 
 ```
-data/raw/*.log.gz
+data/raw/*.log.gz              data/raw/cerber/*.csv
   → parse        (regex, malformed lines counted, never dropped silently)
+                                 → parse_cerber → ES: cerber-events, per-IP cerber_verdict
   → enrich       (ASN, country, path category, UA family, pseudonymised IP)
   → features     (per IP)
   → rules + Isolation Forest
@@ -61,6 +73,7 @@ data/raw/*.log.gz
 | 10 | `robots.txt` / sitemap reads | Only crawlers read them (declared, polite bots). |
 | 11 | No referer on HTML pages | Humans arrive from links or search engines. |
 | 12 | Night activity in local time (UTC+11) | Weak signal, used as support only. |
+| 13 | Refused form submissions (Cerber) / repeated contact-form POSTs | Form spam, a cousin of fake sign-ups. |
 | — | HTML / asset ratio | Kept with low weight because of CDN caching. |
 
 Dropped: sequential product browsing (no catalogue on this site), replaced by #10.
@@ -75,14 +88,16 @@ Rules are applied in order; each returns its reasons (e.g.
 3. `spoofed_crawler` — declared bot, inconsistent ASN
 4. `credential_attack` — indicators 5–6
 5. `vuln_scanner` — indicators 3–4
-6. `generic_bot` — tool/missing UA, abnormal rhythm, datacenter
-7. `unknown` — everything else (probable human)
+6. `form_spam` — indicator 13
+7. `generic_bot` — tool/missing UA, abnormal rhythm, datacenter
+8. `unknown` — everything else (probable human)
 
 Isolation Forest on log-scaled indicators surfaces `unknown` IPs that look
 automated, to improve rules. It never overrides a rule.
 
 **Validation** (no ground truth): manual review of 30 random actors, rule vs.
-Isolation Forest agreement table, consistency with server 403s.
+Isolation Forest agreement table, consistency with server 403s and with the
+per-IP Cerber verdict.
 
 ## Stack
 
@@ -108,4 +123,4 @@ python scripts/import_dashboard.py
 
 ## Scope cuts, in order, if time runs out
 
-SecRepo → Isolation Forest → indicator 6.
+SecRepo (out of scope unless time is left) → Isolation Forest → indicator 6.

@@ -3,6 +3,9 @@ data/raw/
 data/processed/
 data/geo/
 *.mmdb
+# raw exports dropped anywhere by mistake (IPs, usernames)
+wp-cerber-*.csv
+*.log.gz
 __pycache__/
 *.py[cod]
 .venv/
