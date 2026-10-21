@@ -62,11 +62,11 @@ def test_redactor_slug_percent_encoded():
 
 def test_redactor_author_archive_usernames():
     r = Redactor("site.example", "site.example", "")
-    assert r("/author/jdoe/") == "/author/<author>/"
+    assert r("/author/jdoe/") == "/author/<author>"
     assert r("/author/jdoe") == "/author/<author>"
     assert r("https://site.example/author/j.doe?x=1") == "https://site.example/author/<author>?x=1"
     assert r("/author/jdoe#top") == "/author/<author>#top"
-    assert r("/Author/JDoe/page/2/") == "/Author/<author>/page/2/"
+    assert r("/Author/JDoe/page/2/") == "/author/<author>"
     assert r("/coauthor/x") == "/coauthor/x"
 
 
@@ -76,6 +76,15 @@ def test_redactor_author_encoded_and_odd_forms():
         assert "jdoe" not in r(path)
     assert r("/author//jdoe") == "/author/<author>"
     assert r("/coauthor/x") == "/coauthor/x"
+    for raw, want in {
+        "/author/jdoe%20smith": "/author/<author>",
+        "/author/j%2Fdoe": "/author/<author>",
+        "/author/a%3Fb": "/author/<author>",
+        "/foo%20bar/author/x": "/foo%20bar/author/<author>",
+        "/author/jdoe?q=a%26b": "/author/<author>?q=a%26b",
+        "/AUTHOR/jdoe/": "/author/<author>",
+    }.items():
+        assert r(raw) == want
 
 
 def test_redactor_domain_case_insensitive():

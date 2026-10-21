@@ -9,8 +9,12 @@ from urllib.parse import unquote
 PSEUDO_PREFIX = "ip-"
 CUSTOM_LOGIN = "/<custom-login>"
 AUTHOR = "<author>"
-# WordPress author archives expose usernames: /author/<login>/.
-AUTHOR_RE = re.compile(r"(/author/)/*[^/?#\s]+", re.I)
+# WordPress author archives expose usernames: /author/<login>/. Matched on the raw text, each
+# character possibly percent-encoded; everything after the marker up to ?, # or whitespace goes.
+_SEP = r"(?:/|%2f)"
+_WORD = "".join(f"(?:{c}|%{ord(c):02x}|%{ord(c.upper()):02x})" for c in "author")
+AUTHOR_RE = re.compile(rf"{_SEP}{_WORD}{_SEP}+[^?#\s]+", re.I)
+AUTHOR_PATH = f"/author/{AUTHOR}"
 
 
 def pseudonymise(value: str, key: str, prefix: str = PSEUDO_PREFIX) -> str:
@@ -61,11 +65,7 @@ class Redactor:
             decoded = unquote(text)
             if self.slug_re.search(decoded):
                 text = self.slug_re.sub(CUSTOM_LOGIN, decoded)
-        decoded = unquote(text)
-        # Encoded forms (/%61uthor/x, /author%2Fx): keep the decoded form only when it matches.
-        if AUTHOR_RE.search(decoded):
-            text = decoded
-        text = AUTHOR_RE.sub(rf"\g<1>{AUTHOR}", text)
+        text = AUTHOR_RE.sub(AUTHOR_PATH, text)
         if self.domain_re:
             text = self.domain_re.sub(self.site_label, text)
         return text
