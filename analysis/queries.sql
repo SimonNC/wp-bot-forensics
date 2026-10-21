@@ -26,7 +26,7 @@ SELECT actor_category,
        round(100.0 * count(*) / sum(count(*)) OVER (), 1) AS pct_requests
 FROM requests
 GROUP BY actor_category
-ORDER BY requests DESC;
+ORDER BY requests DESC, actor_category;
 
 -- name: top_credential_attackers
 -- title: Top credential attackers (XML-RPC / login POSTs)
@@ -34,7 +34,7 @@ SELECT ip_hash, as_org, country, login_posts, login_posts_10min_max, in_campaign
        array_to_string(reasons, '; ') AS reasons
 FROM actors
 WHERE category = 'credential_attack'
-ORDER BY login_posts DESC
+ORDER BY login_posts DESC, ip_hash
 LIMIT 10;
 
 -- name: top_bot_networks
@@ -45,7 +45,7 @@ SELECT coalesce(as_org, '(unknown)') AS as_org,
 FROM actors
 WHERE category NOT IN ('internal', 'unknown')
 GROUP BY 1
-ORDER BY requests DESC
+ORDER BY requests DESC, 1
 LIMIT 10;
 
 -- name: top_bot_user_agents
@@ -56,7 +56,7 @@ SELECT coalesce(user_agent, '(none)') AS user_agent,
 FROM requests
 WHERE actor_category NOT IN ('internal', 'unknown')
 GROUP BY 1
-ORDER BY requests DESC
+ORDER BY requests DESC, 1
 LIMIT 10;
 
 -- name: spoofed_crawlers
@@ -64,7 +64,7 @@ LIMIT 10;
 SELECT ip_hash, bot_name, as_org, n_requests, top_user_agent
 FROM actors
 WHERE category = 'spoofed_crawler'
-ORDER BY n_requests DESC;
+ORDER BY n_requests DESC, ip_hash;
 
 -- name: daily_timeline
 -- title: Daily requests by category
@@ -95,7 +95,7 @@ SELECT category,
        CAST(sum(CASE WHEN iforest_outlier THEN 1 ELSE 0 END) AS BIGINT) AS iforest_outliers
 FROM actors
 GROUP BY category
-ORDER BY actors DESC;
+ORDER BY actors DESC, category;
 
 -- name: rules_vs_cerber
 -- title: Rules vs. WP Cerber verdicts (actors)
@@ -108,5 +108,5 @@ SELECT ip_hash, as_org, n_requests, peak_rpm, round(iforest_score, 3) AS score,
        top_user_agent
 FROM actors
 WHERE category = 'unknown' AND iforest_outlier
-ORDER BY score DESC
+ORDER BY score DESC, ip_hash
 LIMIT 10;
