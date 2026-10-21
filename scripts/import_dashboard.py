@@ -18,3 +18,8 @@ if __name__ == "__main__":
     print(f"success={body['success']} imported={body.get('successCount')}")
     if not body["success"]:
         raise SystemExit(body.get("errors"))
+    # Logs are UTC: make Kibana display (and resolve the stored time range) in UTC.
+    tz = s.post(f"{kibana}/api/kibana/settings",
+                json={"changes": {"dateFormat:tz": "UTC"}}, timeout=30)
+    tz.raise_for_status()
+    print("dateFormat:tz=UTC")
