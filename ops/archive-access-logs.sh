@@ -6,7 +6,7 @@
 # kept 365 days max.
 set -eu
 
-CONTAINER="${CONTAINER:-site-staging-wordpress-1}"
+CONTAINER="${CONTAINER:-wordpress-1}"
 DEST="${DEST:-$HOME/log-archive/site}"
 RETENTION_DAYS=365
 

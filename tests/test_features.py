@@ -57,7 +57,7 @@ def test_referer_static_and_night():
         {"referer": None},
         {"referer": "https://x/"},
         {"path": "/s.css", "path_category": "static"},
-        # 14:00 UTC = 01:00 in local → night
+        # 14:00 UTC = 01:00 local time (UTC+11) → night
         {"timestamp": T0.replace(hour=14)},
     ]
     a = one(make(rows))

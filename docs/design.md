@@ -1,12 +1,12 @@
 # Design — wp-bot-forensics
 
 Detect and classify automated traffic in the real Apache access logs of a
-WordPress site (site.example), with explainable rules first and an anomaly
+WordPress site, with explainable rules first and an anomaly
 detector as a safety net.
 
 ## Data
 
-- **Source**: Apache `combined` access logs of site.example (WordPress behind
+- **Source**: Apache `combined` access logs of a small business's WordPress site (WordPress behind
   Cloudflare and Traefik, real client IPs restored by `mod_remoteip`),
   archived daily on the server since 2026-10-13.
 - **Not versioned**: raw logs (`data/raw/`). A one-day pseudonymised sample is
@@ -23,7 +23,7 @@ detector as a safety net.
   baseline.
 - **Privacy**: IPs are replaced by HMAC-SHA256 (secret key from `.env`) at parse
   time, after ASN/country lookup. No clear IP reaches Elasticsearch, Parquet or
-  screenshots. The site name is a config value so it can be anonymised in one line.
+  screenshots. The site's domain is replaced by `SITE_LABEL` (`site.example`) everywhere, so the site is anonymised.
   Usernames are hashed the same way, and the site's custom login URL is a
   security secret: it is replaced by `/<custom-login>/` everywhere (case-insensitive,
   also when percent-encoded). Author archive paths expose usernames:
@@ -74,7 +74,7 @@ data/raw/*.log.gz              data/raw/cerber/*.csv
 | 9 | Datacenter ASN (explicit hosting providers only) | Real visitors browse from ISPs, not cloud servers. Evidence only: never enough on its own to call an actor a bot. |
 | 10 | `robots.txt` / sitemap reads | Only crawlers read them (declared, polite bots). Isolation Forest input only, not a rule. |
 | 11 | No referer on HTML pages | Humans arrive from links or search engines. Isolation Forest input only, not a rule. |
-| 12 | Night activity in local time (UTC+11) | Weak signal, used as support only. |
+| 12 | Night activity in the site's local time (UTC+11) | Weak signal, used as support only. |
 | 13 | Refused form submissions (Cerber) / repeated contact-form POSTs | Form spam, a cousin of fake sign-ups. |
 | — | HTML / asset ratio | Kept with low weight because of CDN caching. |
 

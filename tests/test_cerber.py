@@ -9,11 +9,11 @@ CSV = (
     '"Adresse IP","Date","Événement","Statut","Utilisateur local","Connexion de l\'utilisateur",'
     '"ID utilisateur","Nom d’utilisateur","Par utilisateur","Unix Timestamp","Request ID","URL"\n'
     '"203.0.113.9","x","Sous-réseau IP verrouillé","Tentative d’accès à une URL interdite",'
-    '"","","0","","0","1792565433.8622","r1","site.example/wp-login.php"\n'
+    '"","","0","","0","1792565433.8622","r1","example.com/wp-login.php"\n'
     '"203.0.113.9","x","Tentative d’accès à une URL interdite","Refusé","","","0","","0",'
-    '"1792565433.8572","r1","site.example/wp-login.php"\n'
+    '"1792565433.8572","r1","example.com/wp-login.php"\n'
     '"198.51.100.4","x","Connecté","Code 2FA vérifié","Administration","adminuser","7",'
-    '"adminuser","7","1792567157.8290","r2","site.example/secretadm/"\n'
+    '"adminuser","7","1792567157.8290","r2","example.com/secretadm/"\n'
     '"198.51.100.5","x","Envoi du formulaire refusé","","","","0","","0","1792567000.0","r3",""\n'
 )
 
@@ -22,7 +22,7 @@ def _events(tmp_path):
     path = tmp_path / "activity.csv"
     path.write_text(CSV, encoding="utf-8")
     raw = read_activity(path)
-    return raw, prepare_events(raw, "k", Redactor("site.example", "site.example", "secretadm"),
+    return raw, prepare_events(raw, "k", Redactor("example.com", "example.com", "secretadm"),
                                GeoLookup(None, None))
 
 
@@ -39,16 +39,17 @@ def test_prepare_events_maps_groups_and_hides_secrets(tmp_path):
     text = ev.to_csv()
     assert "203.0.113.9" not in text and "adminuser" not in text and "secretadm" not in text
     assert ev["username_hash"].iloc[2].startswith("user-")
-    assert ev["url"].iloc[2] == "site.example/<custom-login>/"
+    assert ev["url"].iloc[2] == "example.com/<custom-login>/"
     assert ev["url"].isna().iloc[3]
 
 
 def test_url_query_string_is_dropped(tmp_path):
     path = tmp_path / "activity.csv"
-    with_query = CSV.replace('"site.example/wp-login.php"', '"site.example/wp-login.php?redirect_to=x"')
+    with_query = CSV.replace('"example.com/wp-login.php"',
+                             '"example.com/wp-login.php?redirect_to=x"')
     path.write_text(with_query, encoding="utf-8")
     ev = prepare_events(read_activity(path), "k",
-                        Redactor("site.example", "site.example", "secretadm"), GeoLookup(None, None))
+                        Redactor("example.com", "example.com", "secretadm"), GeoLookup(None, None))
     assert "redirect_to" not in ev.to_csv()
     assert not ev["url"].dropna().str.contains("?", regex=False).any()
 
@@ -65,10 +66,10 @@ def test_verdict_takes_most_severe_event(tmp_path):
 def _single_row_events(tmp_path, event, username=""):
     header = CSV.split("\n")[3]
     row = (f'"203.0.113.9","x","{event}","","","","0","{username}","0",'
-           '"1792565433.8","r9","site.example/x"\n')
+           '"1792565433.8","r9","example.com/x"\n')
     path = tmp_path / "one.csv"
     path.write_text(header + "\n" + row, encoding="utf-8")
-    redact = Redactor("site.example", "site.example", "secretadm")
+    redact = Redactor("example.com", "example.com", "secretadm")
     return prepare_events(read_activity(path), "k", redact, GeoLookup(None, None))
 
 

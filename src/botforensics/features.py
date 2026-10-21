@@ -4,7 +4,7 @@ import pandas as pd
 
 from botforensics.enrich import bot_asn_consistent
 
-LOCAL_OFFSET = pd.Timedelta(hours=11)  # local time, no daylight saving time
+LOCAL_OFFSET = pd.Timedelta(hours=11)  # the site's local time
 LOGIN_CATEGORIES = ["login", "xmlrpc"]
 
 FEATURE_COLUMNS = ["ip_hash", "n_requests", "first_seen", "last_seen", "peak_rpm",
