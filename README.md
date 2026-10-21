@@ -9,6 +9,8 @@
 analysed end to end: who attacks it, how to prove it, and how good the detection is.
 Python, SQL, Elasticsearch and Kibana. [LinkedIn](LINKEDIN_URL)
 
+**Short on time? Read the one-page [threat report](REPORT.md).**
+
 > Built with Claude Code: I drove the investigation, chose the rules and thresholds, and
 > validated the results by hand.
 

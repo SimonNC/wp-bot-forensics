@@ -7,13 +7,13 @@ ask. All figures come from [`analysis/FINDINGS.md`](analysis/FINDINGS.md).
 
 ### 1. Context (0:00 – 0:40)
 
-- One week of real Apache logs (13–20 October 2026) from a production WordPress site,
-  site.example, a small business, behind Cloudflare.
+- One week of real Apache logs (13–20 October 2026) from a small business's WordPress
+  site, in production behind Cloudflare. The site is anonymised.
 - The question: **who still reaches the origin server, and what can an analyst prove from
   raw logs alone?**
 - 27,864 requests, 863 IP addresses, 78 % answered with a 403.
 
-### 2. Method (0:40 – 1:40)
+### 2. Method (0:40 – 1:30)
 
 - Python pipeline: parsing, ASN and country enrichment, HMAC pseudonymisation of IPs,
   per-IP indicators, then classification.
@@ -21,93 +21,100 @@ ask. All figures come from [`analysis/FINDINGS.md`](analysis/FINDINGS.md).
   `declared=Jetpack; Jetpack_from=Reliance Jio; login_posts_10min=56`.
 - Two principles: **behaviour beats declared identity** (a crawler name costs nothing), and
   **a datacenter is evidence, never a verdict**.
-- An Isolation Forest acts as a safety net to suggest new rules. It never overrides a rule.
-- Elasticsearch and Kibana for investigation; DuckDB for versioned, reproducible SQL.
+- Elasticsearch and Kibana for investigation; DuckDB for versioned SQL.
 
-### 3. Headline finding: a residential botnet (1:40 – 3:00)
+### 3. Finding 1: password attacks through residential proxies (1:30 – 2:30)
 
 *Show the networks panel of the dashboard.*
 
-- 43 IPs on consumer and mobile ISPs in 21 countries (16 in India), **none in a
-  datacenter**, sent 5,160 `POST /xmlrpc.php`: credential stuffing.
-- They pose as WordPress.com's Jetpack service, but none comes from Automattic's network.
-- Signature of a scripted loop: about 56 attempts per 10 minutes, near-constant timing
-  (median coefficient of variation 0.05), and 25 of them stop at exactly 150 attempts, a
-  per-bot quota.
-- Only 10 of the 43 overlap in time: the campaign rule alone would have missed three
-  quarters of them; the per-IP burst rule does most of the work.
+- 43 IPs on consumer and mobile ISPs in 21 countries, **none in a datacenter**: most likely
+  a rented residential proxy network.
+- 5,160 login attempts on `xmlrpc.php`. 39 of these IPs pose as WordPress.com's Jetpack
+  service; none comes from its network.
+- The fingerprint of one tool: about 56 attempts per 10 minutes, near-constant timing, and
+  25 IPs that stop at exactly 150 attempts, a per-bot quota.
+- These are account takeover attempts. Without request bodies, I cannot tell credential
+  stuffing from brute force.
 
-### 4. What each defence layer sees (3:00 – 3:40)
+### 4. Finding 2: scanners disguised as AI crawlers (2:30 – 3:20)
 
-- 71 % of requests come from vulnerability scanners (`.env`, `.git`, `wp-config`), 83 % of
-  that volume from Microsoft and Google cloud networks.
-- Apache blocks 5,189 XML-RPC POSTs before PHP runs; WP Cerber logs only 14 XML-RPC
-  refusals. Cerber locked out or flagged 92 of the 159 scanners but none of the 43
-  credential attackers: **each layer sees only part of the attack**.
+- 6 Google Cloud IPs, over 4 days, rotate the same 33 user-agents: GPTBot, ClaudeBot,
+  PerplexityBot, DeepSeekBot, Googlebot… 24 crawler names in all.
+- About 400 requests in 12–14 seconds per IP, all hunting for `.env` files and cloud
+  credentials. Nothing sensitive was served.
+- This is not AI agent traffic: it is a secrets scanner wearing crawler masks, probably to
+  slip through "allow AI crawlers" rules.
+- Lesson for my own detection: from Google Cloud, their fake Googlebot would have passed my
+  ASN-based check. It is the first limit I would fix.
 
-### 5. Validation and limits (3:40 – 4:40)
+### 5. Validation and limits (3:20 – 4:30)
 
 - No ground truth: manual review of 30 actors sampled by category. The rules agree with me
-  on **25 out of 30**.
-- When a rule flags a bot, it is right 24 times out of 25. Recall is the weak spot: 4 of the
-  5 actors left as `unknown` were bots.
+  on **25 out of 30**. When a rule flags a bot it is right 24 times out of 25; 4 of the 5
+  actors left as `unknown` were bots. Precision is good, recall is the weak spot.
 - One false positive found and fixed: my own admin sessions were classified as a bot.
-- Limits: crawler verification relies on the network name, declared-bot detection on
-  keywords, and the data covers one site for one week.
+- Each layer sees only part of the attack: Apache refuses all 5,189 XML-RPC POSTs, the
+  security plugin logs only 14 of them.
+- Above all: origin logs have no TLS fingerprint and no JavaScript signal. A headless
+  Chrome behind a residential proxy would look human here. Those signals live upstream,
+  at the edge.
 
-### 6. Wrap-up (4:40 – 5:00)
+### 6. Wrap-up (4:30 – 5:00)
 
-- Next steps: published IP ranges and reverse DNS for crawlers, fingerprinting the botnet
-  beyond its user-agent.
+- Next steps: published IP ranges and reverse DNS for crawlers, measuring recall with a
+  second annotator.
 - What I take from it for the role: start from raw data, explain every verdict, and measure
   honestly where the rules are wrong.
 
 ## Questions from a DataDome analyst
 
-### 1. "How do you know your rules don't block humans?"
+### 1. "Isn't your validation circular?"
 
-- I don't know it for certain: real logs have no ground truth.
-- I measured precision per category on a stratified sample: 24 correct accusations out of
-  25. The error was a genuine Bingbot classified as a scanner for a single probe.
-- I found a real false positive: my own admin sessions at 45 requests per minute. Lesson:
-  "fast and from one IP" does not mean "malicious".
-- Cross-checks with the server's 403s and with Cerber's verdicts.
-- Next: run the rules on a public dataset with real human traffic to measure the false
-  positive rate.
+- Partly, yes: I labelled, alone, actors classified by my own rules.
+- What it still measures: precision per category (24 correct accusations out of 25). The
+  error was a genuine Bingbot classified as a scanner for a single probe.
+- What it does not measure: recall. And agreement on `unknown` is only 1 in 5.
+- Next step: a second annotator, and a sample drawn from `unknown` to measure recall.
+- A real false positive found along the way: my admin sessions at 45 requests per minute.
+  "Fast and from one IP" does not mean "malicious".
 
-### 2. "These bots use residential IPs. Does blocking by IP work?"
+### 2. "What does your pipeline do against an up-to-date headless Chrome, behind a residential proxy, with a consistent user-agent?"
 
-- Poorly. These IPs are often behind carrier-grade NAT (Reliance Jio, for example):
-  blocking the IP would also block real customers, and the attacker rotates IPs anyway.
-- What gives this botnet away is not the IP but **consistency**: a user-agent claiming
-  Jetpack from an Indian mobile network, metronomic timing, a fixed quota of 150 attempts,
-  a single target.
-- At the edge there are signals my logs lack: TLS fingerprint, order and consistency of
-  HTTP headers, client-side JavaScript signals, and the view of the same botnet across
-  many customer sites.
+- Nothing, and the README says so. Origin logs contain no TLS, no JavaScript, no header
+  order.
+- The edge layer sees those: TLS fingerprint, HTTP header consistency, client-side
+  JavaScript signals, and the view of the same attacker across many sites.
+- What my logs still bring: behaviour over time. The 150-attempt quota or the rotation of
+  33 user-agents are tool fingerprints that survive an IP change.
 
-### 3. "Why the IP as the unit of analysis rather than a session?"
+### 3. "Who wrote the code? Walk me through `rules.py`."
 
-- Scanners change user-agent on every request: an (IP, user-agent) session would split one
-  actor into dozens of fake ones.
-- The cost: several users behind one IP (NAT, CGNAT, corporate proxy) are merged. On this
-  site few humans reach the origin, so the risk is low; on a high-traffic site I would key
-  sessions on a cookie or a fingerprint.
+- I built it with Claude Code, and the README says so. I chose the indicators, the rule
+  order and the thresholds, reviewed 30 actors, and found and fixed the false positive on
+  my admin sessions.
+- One choice I defend: attack rules run before identity checks. That is why the fake
+  GPTBot and ClaudeBot come out as `vuln_scanner`, not `spoofed_crawler`; the spoofing
+  stays visible in the reasons and in a dedicated table in `FINDINGS.md`.
 
-### 4. "How would you verify a Googlebot properly?"
+### 4. "How would you properly verify a Googlebot or an AI crawler?"
 
 - Today I check that the IP belongs to the operator's network (AS "Google LLC"). That is
-  necessary but not sufficient: a Google Cloud VM is also "Google LLC".
+  necessary but not sufficient: the disguised scanners came precisely from Google Cloud,
+  which is also "Google LLC".
 - The right method: reverse DNS on the IP (`*.googlebot.com`), then forward DNS to confirm
-  it resolves back to the same IP, or a match against the IP ranges Google, Bing or OpenAI
-  publish.
-- It is the first improvement listed in the README.
+  it resolves back to the same IP, or a match against the IP ranges operators publish
+  (Google, Bing and OpenAI do).
+- And behavioural consistency: a real crawler does not request `/.env` 12 times in
+  12 seconds.
 
-### 5. "How would you apply this to account takeover or fake account creation?"
+### 5. "How does this connect to fraud and account takeover?"
 
-- XML-RPC credential stuffing already is an account takeover attempt: same signals (POST
-  bursts on an authentication target, spread across many IPs to stay under per-IP limits).
-- For fake accounts: indicator 13 (repeated form submissions), to which I would add the
-  e-mail domain, form completion speed and fingerprint reuse across sign-ups.
-- In production this must move from batch to real time: compute sliding windows as
-  requests stream in and decide before the request reaches the application.
+- The `xmlrpc.php` attacks are account takeover attempts: bursts of logins spread across
+  many IPs to stay under per-IP limits.
+- It is the start of a chain I know from payment fraud: a taken-over account is then used
+  to commit fraud. My work at Fia-Net and BetClic was at the end of that chain; this
+  project looks at its start.
+- For fake accounts, I would add to repeated form submissions the e-mail domain, form
+  completion speed and fingerprint reuse across sign-ups.
+- In production this must move from batch to real time: sliding windows computed as
+  requests stream in, and a decision before the request reaches the application.
