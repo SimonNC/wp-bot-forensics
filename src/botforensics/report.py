@@ -8,6 +8,8 @@ import duckdb
 import numpy as np
 import pandas as pd
 
+from botforensics.rules import CATEGORIES
+
 VIEWS = ("requests", "actors", "cerber_events")
 
 
@@ -87,8 +89,27 @@ def review_agreement(path: Path) -> str | None:
     if not path.exists():
         return None
     df = pd.read_csv(path, dtype=str, keep_default_na=False)
-    done = df[df["my_category"].str.strip() != ""]
+    labels = df["my_category"].str.strip().str.lower()
+    done = df.assign(label=labels)[labels != ""]
     if done.empty:
         return None
-    agree = int((done["my_category"] == done["category"]).sum())
-    return f"Manual review: rules agree with the analyst on {agree}/{len(done)} actors."
+    invalid = done[~done["label"].isin(CATEGORIES)]
+    valid = done[done["label"].isin(CATEGORIES)]
+    agree = valid["label"] == valid["category"]
+    lines = [
+        f"Manual review: rules agree with the analyst on {int(agree.sum())}/{len(valid)} actors.",
+        "",
+        "The sample is stratified by rule category, so read agreement per category: it is the "
+        "precision of each rule, not the overall accuracy of the classifier.",
+        "",
+        "| category | agree | reviewed |",
+        "|---|---|---|",
+    ]
+    for cat in CATEGORIES:
+        hits = agree[valid["category"] == cat]
+        if len(hits):
+            lines.append(f"| {cat} | {int(hits.sum())} | {len(hits)} |")
+    if len(invalid):
+        names = ", ".join(sorted(set(invalid["label"])))
+        lines += ["", f"Invalid labels (not a category): {len(invalid)} ({names})"]
+    return "\n".join(lines)

@@ -110,7 +110,7 @@ def actor_features(req: pd.DataFrame) -> pd.DataFrame:
         for ip, g in req.groupby("ip_hash", sort=False)
     ]
     df = pd.DataFrame(rows, columns=FEATURE_COLUMNS)
-    df["asn"] = df["asn"].astype("Float64")
+    df["asn"] = df["asn"].astype("Int64")
     df["chrome_major_min"] = df["chrome_major_min"].astype("Float64")
     for col in ("ip_hash", "ua_kind", "bot_name", "top_user_agent", "as_org", "country"):
         df[col] = df[col].astype("string")

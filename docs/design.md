@@ -38,9 +38,9 @@ detector as a safety net.
 - Part of the traffic is our own (uptime monitors, WP-cron, admin sessions) and
   is classified as `internal`, excluded from the bot share.
 - Each defence layer sees part of the traffic: Apache rejects most `xmlrpc.php`
-  POSTs (5,629 in Apache logs) before PHP runs, so Cerber logs only 19 XML-RPC
-  refusals. Cross-referencing both is a finding in itself (README section
-  "What each defence layer sees").
+  POSTs before PHP runs, so Cerber logs only a small fraction of the XML-RPC
+  refusals. Cross-referencing both is a finding in itself; the current figures are
+  in `analysis/FINDINGS.md` (generated, never hard-coded here).
 
 ## Pipeline
 
@@ -72,8 +72,8 @@ data/raw/*.log.gz              data/raw/cerber/*.csv
 | 7 | UA missing, tool (`curl`, `python-requests`…) or outdated browser | Bot kits freeze a UA; browsers auto-update. |
 | 8 | Declared bot vs. ASN (Googlebot from Google, Jetpack from Automattic) | Claiming a name is free, owning the IP is not. |
 | 9 | Datacenter ASN (explicit hosting providers only) | Real visitors browse from ISPs, not cloud servers. Evidence only: never enough on its own to call an actor a bot. |
-| 10 | `robots.txt` / sitemap reads | Only crawlers read them (declared, polite bots). |
-| 11 | No referer on HTML pages | Humans arrive from links or search engines. |
+| 10 | `robots.txt` / sitemap reads | Only crawlers read them (declared, polite bots). Isolation Forest input only, not a rule. |
+| 11 | No referer on HTML pages | Humans arrive from links or search engines. Isolation Forest input only, not a rule. |
 | 12 | Night activity in local time (UTC+11) | Weak signal, used as support only. |
 | 13 | Refused form submissions (Cerber) / repeated contact-form POSTs | Form spam, a cousin of fake sign-ups. |
 | — | HTML / asset ratio | Kept with low weight because of CDN caching. |
@@ -83,7 +83,7 @@ Dropped: sequential product browsing (no catalogue on this site), replaced by #1
 ## Classification
 
 Rules are applied in order; each returns its reasons (e.g.
-`["xmlrpc_post_10min=48", "asn=datacenter"]`), stored with the verdict.
+`["login_posts_10min=48", "datacenter=OVH SAS"]`), stored with the verdict.
 
 1. `internal` — operator IPs from `INTERNAL_IPS` (secret, in `.env`) are classified
    `internal` first, whatever they do; before this allowlist the operator's admin
@@ -119,9 +119,12 @@ spoofing remains visible in the stored reasons.
 Isolation Forest on log-scaled indicators surfaces `unknown` IPs that look
 automated, to improve rules. It never overrides a rule.
 
-**Validation** (no ground truth): manual review of 30 random actors, rule vs.
+**Validation** (no ground truth): manual review of 30 actors, rule vs.
 Isolation Forest agreement table, consistency with server 403s and with the
-per-IP Cerber verdict.
+per-IP Cerber verdict. The review sample is stratified by rule category (internal
+actors excluded), so its agreement is reported per category: it measures the
+precision of each rule, not the overall accuracy of the classifier. Labels are
+compared case-insensitively; labels that are not a category are counted as invalid.
 
 ## Stack
 
@@ -144,6 +147,16 @@ docker compose up -d
 python -m botforensics ingest data/sample
 python scripts/import_dashboard.py
 ```
+
+## Limits
+
+- "Outdated Chrome" is measured against a fixed constant (`CURRENT_CHROME_MAJOR`,
+  Chrome stable in October 2026): it must be bumped when the pipeline runs on later
+  logs, or every browser will slowly look outdated.
+- Crawler verification relies on the AS organisation only (see Classification);
+  published crawler IP ranges are not checked yet.
+- `classify_path` decodes percent-escapes and collapses repeated slashes before
+  classifying (`/%2eenv`, `//xmlrpc.php`); the stored path stays as logged.
 
 ## Scope cuts, in order, if time runs out
 

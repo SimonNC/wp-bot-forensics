@@ -78,3 +78,15 @@ def test_parse_file_counts_malformed(tmp_path):
 def test_format_time_roundtrip():
     ts = datetime(2026, 10, 4, 3, 7, 41, tzinfo=UTC)
     assert format_time(ts) == "04/Oct/2026:03:07:41 +0000"
+
+
+def test_backslash_escapes_are_decoded():
+    line = ('203.0.113.7 - - [14/Oct/2026:03:07:41 +0000] "GET / HTTP/1.1" 200 1 "-" '
+            r'"a \"b\" C:\\dir\\"')
+    assert parse_line(line).user_agent == 'a "b" C:\\dir\\'
+
+
+def test_bare_question_mark_keeps_has_query():
+    line = '203.0.113.7 - - [14/Oct/2026:03:07:41 +0000] "GET /a/? HTTP/1.1" 200 1 "-" "x"'
+    r = parse_line(line)
+    assert (r.path, r.has_query) == ("/a/", True)

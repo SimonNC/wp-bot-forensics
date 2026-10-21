@@ -4,6 +4,7 @@ import ipaddress
 import re
 from collections.abc import Iterable
 from pathlib import PurePosixPath
+from urllib.parse import unquote
 
 import pandas as pd
 
@@ -70,7 +71,8 @@ TEXT_COLUMNS = ["ip_hash", "as_org", "country", "method", "path", "path_category
 
 
 def classify_path(path: str) -> str:
-    p = path.lower()
+    # Classify what the server resolves (/%2eenv, //xmlrpc.php); the stored path is unchanged.
+    p = re.sub(r"/{2,}", "/", unquote(path)).lower()
     if p == "/xmlrpc.php":
         return "xmlrpc"
     if p == "/wp-login.php" or p.startswith(CUSTOM_LOGIN):
@@ -189,7 +191,7 @@ def enrich_requests(requests: Iterable[Request], geo: GeoLookup, key: str, redac
         })
     df = pd.DataFrame(rows, columns=REQUEST_COLUMNS)
     df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
-    df["asn"] = df["asn"].astype("Float64")
+    df["asn"] = df["asn"].astype("Int64")
     df["chrome_major"] = df["chrome_major"].astype("Float64")
     # Explicit string dtype: an all-empty column must stay a string column in Parquet/DuckDB.
     for col in TEXT_COLUMNS:

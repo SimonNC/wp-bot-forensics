@@ -42,6 +42,12 @@ from botforensics.privacy import Redactor, pseudonymise
         ("/wp-content/themes/t/style.css", "static"),
         ("/contact/", "html"),
         ("/", "html"),
+        # Encoded or doubled characters must not dodge the categories.
+        ("/%2eenv", "sensitive_probe"),
+        ("/%2Egit/config", "sensitive_probe"),
+        ("//xmlrpc.php", "xmlrpc"),
+        ("///wp-login.php", "login"),
+        ("/wp-admin//admin-post.php", "form"),
     ],
 )
 def test_classify_path(path, expected):

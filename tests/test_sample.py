@@ -5,8 +5,9 @@ from dataclasses import replace
 import pytest
 
 from botforensics.config import DEV_KEY
+from botforensics.parse import parse_line
 from botforensics.pipeline import run
-from botforensics.sample import make_sample
+from botforensics.sample import _quote, make_sample
 
 RAW = (
     '203.0.113.7 - - [14/Oct/2026:03:00:00 +0000] "GET /secretadm/?a=1 HTTP/1.1" 200 1 '
@@ -44,6 +45,9 @@ def test_sample_is_pseudonymised_and_reprocessable(tmp_path, settings):
     result = run(out, settings)
     assert result.stats.parsed == 1
     assert result.actors["category"].iloc[0] == "internal"  # Cerber logged_in
+    # The query string is dropped but its presence survives the round trip.
+    assert '"GET /<custom-login>/? HTTP/1.1"' in text
+    assert bool(result.requests["has_query"].iloc[0])
 
 
 def test_sample_records_allowlisted_ips_without_clear_ip(tmp_path, settings):
@@ -64,3 +68,12 @@ def test_sample_records_allowlisted_ips_without_clear_ip(tmp_path, settings):
     result = run(out, settings)  # no networks configured: the flag comes from the sidecar
     assert result.requests["is_allowlisted"].all()
     assert result.actors["category"].iloc[0] == "internal"
+
+
+def test_quote_then_parse_is_idempotent():
+    line = ('203.0.113.7 - - [14/Oct/2026:03:07:41 +0000] "GET / HTTP/1.1" 200 1 "-" '
+            r'"a \"b\" C:\\dir\\"')
+    ua = parse_line(line).user_agent
+    assert ua == 'a "b" C:\\dir\\'
+    again = line.rsplit(' "', 1)[0] + f' "{_quote(ua)}"'
+    assert parse_line(again).user_agent == ua

@@ -30,7 +30,7 @@ EVENT_GROUPS = {
 }
 VERDICT_PRIORITY = ["locked", "malicious_request", "login_failed", "form_refused",
                     "api_refused", "logged_in"]
-EVENT_DTYPES = {"timestamp": "datetime64[ns, UTC]", "ip_hash": "string", "asn": "Float64",
+EVENT_DTYPES = {"timestamp": "datetime64[ns, UTC]", "ip_hash": "string", "asn": "Int64",
                 "as_org": "string", "country": "string", "event": "string",
                 "event_group": "string", "status": "string", "username_hash": "string",
                 "url": "string"}
@@ -64,7 +64,7 @@ def prepare_events(raw: pd.DataFrame, key: str, redact: Redactor,
     ev = pd.DataFrame({
         "timestamp": raw["timestamp"],
         "ip_hash": raw["ip"].map(lambda v: v if is_pseudonym(v) else pseudonymise(v, key)),
-        "asn": infos.map(lambda i: i.asn).astype("Float64"),
+        "asn": infos.map(lambda i: i.asn).astype("Int64"),
         "as_org": infos.map(lambda i: i.as_org),
         "country": infos.map(lambda i: i.country),
         "event": raw["event"],

@@ -1,5 +1,3 @@
-from pathlib import Path
-
 import pytest
 
 from botforensics.config import Settings
@@ -20,5 +18,3 @@ def settings(tmp_path) -> Settings:
         internal_networks=(),
     )
 
-
-FIXTURES = Path(__file__).parent / "fixtures"

@@ -12,7 +12,7 @@ from botforensics.report import (
     write_review_sample,
 )
 
-QUERIES = Path("analysis/queries.sql")
+QUERIES = Path(__file__).parents[1] / "analysis" / "queries.sql"
 LINES = "\n".join(
     [f'203.0.113.{i} - - [14/Oct/2026:03:00:0{i % 10} +0000] "GET /.env HTTP/1.1" 404 1 "-" "-"'
      for i in range(12)]
@@ -56,6 +56,22 @@ def test_review_sample_and_agreement(tmp_path, settings):
     df.loc[0, "my_category"] = "unknown"
     df.to_csv(out, index=False)
     assert "4/5" in review_agreement(out)
+
+
+def test_review_agreement_normalises_and_reports_per_category(tmp_path):
+    out = tmp_path / "review.csv"
+    pd.DataFrame({
+        "ip_hash": [f"ip-{i}" for i in range(6)],
+        "category": ["vuln_scanner", "vuln_scanner", "generic_bot", "generic_bot", "unknown",
+                     "unknown"],
+        "my_category": [" Vuln_Scanner ", "vuln_scanner", "unknown", "GENERIC_BOT", "human", ""],
+    }).to_csv(out, index=False)
+    text = review_agreement(out)
+    assert "3/4" in text  # the invalid label and the blank row are not counted
+    assert "| vuln_scanner | 2 | 2 |" in text
+    assert "| generic_bot | 1 | 2 |" in text
+    assert "Invalid labels (not a category): 1 (human)" in text
+    assert "stratified" in text
 
 
 def test_review_sample_refuses_to_overwrite_labels(tmp_path, settings):

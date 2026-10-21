@@ -61,8 +61,12 @@ def format_time(ts: datetime) -> str:
     return f"{ts.day:02d}/{MONTH_NAMES[ts.month - 1]}/{ts.year}:{ts:%H:%M:%S} +0000"
 
 
+ESCAPE_RE = re.compile(r'\\(["\\])')
+
+
 def _unescape(value: str) -> str:
-    return value.replace('\\"', '"')
+    # Apache writes \" and \\ inside quoted fields; decode both in a single pass.
+    return ESCAPE_RE.sub(r"\1", value)
 
 
 def _none_if_dash(value: str) -> str | None:
@@ -84,13 +88,13 @@ def parse_line(line: str) -> Request | None:
     else:
         # Binary junk or truncated request line (TLS on port 80, scanners): keep it as path.
         method, target, protocol = None, request, None
-    path, _, query = target.partition("?")
+    path, sep, _ = target.partition("?")
     return Request(
         host=m["host"],
         timestamp=timestamp,
         method=method,
         path=path or "/",
-        has_query=bool(query),
+        has_query=bool(sep),
         protocol=protocol,
         status=int(m["status"]),
         size=0 if m["size"] == "-" else int(m["size"]),

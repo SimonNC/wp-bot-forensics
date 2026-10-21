@@ -1,3 +1,4 @@
+import ipaddress
 from dataclasses import replace
 
 import pytest
@@ -47,3 +48,18 @@ def test_real_ip_in_cerber_with_dev_key_is_refused(tmp_path, settings):
 def test_real_ips_with_dev_key_are_refused(tmp_path, settings):
     with pytest.raises(RuntimeError, match="PSEUDO_KEY"):
         run(_data(tmp_path), replace(settings, pseudo_key=DEV_KEY))
+
+
+def test_asn_is_an_integer_column_everywhere(tmp_path, settings):
+    result = run(_data(tmp_path), settings)
+    for df in (result.requests, result.actors, result.events):
+        assert str(df["asn"].dtype) == "Int64"
+
+
+def test_allowlisted_operator_ip_is_internal_through_run(tmp_path, settings):
+    owned = replace(settings, internal_networks=(ipaddress.ip_network("198.51.100.2/32"),))
+    actors = run(_data(tmp_path), owned).actors
+    (operator,) = actors[actors["allowlisted_ip"]].to_dict("records")
+    assert operator["category"] == "internal"  # despite probing /.env
+    assert "allowlisted_operator_ip" in operator["reasons"]
+    assert (actors["allowlisted_ip"].sum(), len(actors)) == (1, 3)

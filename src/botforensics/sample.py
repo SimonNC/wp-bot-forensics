@@ -44,7 +44,8 @@ def make_sample(raw_dir: Path, day: str, out_dir: Path, settings: Settings) -> d
             r = parse_line(line)
             if r is None or r.timestamp.date() != target:
                 continue
-            path = redact(r.path)
+            # A bare "?" keeps has_query on re-ingest without leaking the query string.
+            path = redact(r.path) + ("?" if r.has_query else "")
             request = f"{r.method} {path} {r.protocol}" if r.method else path
             out.write(
                 f'{pseudo(r.host)} - - [{format_time(r.timestamp)}] "{_quote(request)}" '
