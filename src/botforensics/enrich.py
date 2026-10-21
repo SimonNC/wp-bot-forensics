@@ -60,6 +60,8 @@ BOT_ASN = {
     "DuckDuckBot": ("microsoft", "duckduckgo"),
     "Jetpack": ("automattic",),
     "facebookexternalhit": ("facebook", "meta"),
+    "Amazonbot": ("amazon",),
+    "PetalBot": ("huawei",),
 }
 
 REQUEST_COLUMNS = ["timestamp", "ip_hash", "asn", "as_org", "country", "is_datacenter",

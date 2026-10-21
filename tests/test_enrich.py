@@ -105,6 +105,9 @@ def test_is_datacenter():
 def test_bot_asn_consistent():
     assert bot_asn_consistent("Googlebot", "Google LLC") is True
     assert bot_asn_consistent("Googlebot", "Hetzner Online GmbH") is False
+    assert bot_asn_consistent("Amazonbot", "Amazon.com, Inc.") is True
+    assert bot_asn_consistent("PetalBot", "Huawei Cloud Service data center") is True
+    assert bot_asn_consistent("PetalBot", "Hetzner Online GmbH") is False
     assert bot_asn_consistent("SomeNewBot", "Hetzner Online GmbH") is None
     assert bot_asn_consistent("Jetpack", None) is None
     assert bot_asn_consistent("Jetpack", pd.NA) is None  # string columns hold pd.NA
