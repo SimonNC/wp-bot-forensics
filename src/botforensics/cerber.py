@@ -71,7 +71,7 @@ def prepare_events(raw: pd.DataFrame, key: str, redact: Redactor,
         "event_group": raw["event"].map(lambda e: EVENT_GROUPS.get(_norm(e), "other")),
         "status": raw["status"].replace("", None),
         "username_hash": raw["username"].map(
-            lambda u: None if not u else (u if u.startswith("user-")
+            lambda u: None if not u else (u if is_pseudonym(u, "user-")
                                           else pseudonymise(u, key, prefix="user-"))),
         "url": raw["url"].map(lambda u: redact(u) if u else None),
     })
@@ -89,4 +89,5 @@ def cerber_verdicts(events: pd.DataFrame) -> pd.DataFrame:
     best = ranked.sort_values("rank").groupby("ip_hash")["event_group"].first()
     counts = events.groupby("ip_hash").size()
     out = pd.DataFrame({"cerber_verdict": best, "cerber_events": counts})
+    out["cerber_verdict"] = out["cerber_verdict"].astype("string")
     return out.rename_axis("ip_hash").reset_index()

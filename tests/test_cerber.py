@@ -52,6 +52,22 @@ def test_verdict_takes_most_severe_event(tmp_path):
     assert set(v["cerber_verdict"]) == {"locked", "logged_in", "form_refused"}
 
 
-def test_refused_login_attempt_is_a_login_failure():
-    from botforensics.cerber import EVENT_GROUPS
-    assert EVENT_GROUPS["tentative de connexion refusée"] == "login_failed"
+def _single_row_events(tmp_path, event, username=""):
+    header = CSV.split("\n")[3]
+    row = (f'"203.0.113.9","x","{event}","","","","0","{username}","0",'
+           '"1792565433.8","r9","site.example/x"\n')
+    path = tmp_path / "one.csv"
+    path.write_text(header + "\n" + row, encoding="utf-8")
+    redact = Redactor("site.example", "site.example", "secretadm")
+    return prepare_events(read_activity(path), "k", redact, GeoLookup(None, None))
+
+
+def test_refused_login_attempt_is_a_login_failure(tmp_path):
+    ev = _single_row_events(tmp_path, "Tentative de connexion refusée")
+    assert list(ev["event_group"]) == ["login_failed"]
+
+
+def test_user_prefixed_username_is_still_hashed(tmp_path):
+    ev = _single_row_events(tmp_path, "Connecté", "user-john")
+    assert ev["username_hash"].iloc[0] != "user-john"
+    assert ev["username_hash"].iloc[0].startswith("user-")

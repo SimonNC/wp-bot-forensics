@@ -24,6 +24,8 @@ def test_is_ip_and_is_pseudonym():
     assert not is_ip("ip-0123456789abcdef")
     assert is_pseudonym(pseudonymise("203.0.113.7", "k"))
     assert not is_pseudonym("203.0.113.7")
+    assert not is_pseudonym("ip-zzzzzzzzzzzzzzzz")
+    assert is_pseudonym(pseudonymise("bob", "k", prefix="user-"), "user-")
 
 
 def test_redactor_replaces_login_slug_as_path_segment_only():

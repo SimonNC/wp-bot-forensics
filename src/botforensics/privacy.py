@@ -23,8 +23,9 @@ def is_ip(value: str) -> bool:
     return True
 
 
-def is_pseudonym(value: str) -> bool:
-    return value.startswith(PSEUDO_PREFIX) and len(value) == len(PSEUDO_PREFIX) + 16
+def is_pseudonym(value: str, prefix: str = PSEUDO_PREFIX) -> bool:
+    suffix = value[len(prefix):]
+    return value.startswith(prefix) and re.fullmatch(r"[0-9a-f]{16}", suffix) is not None
 
 
 def strip_query(url: str | None) -> str | None:
