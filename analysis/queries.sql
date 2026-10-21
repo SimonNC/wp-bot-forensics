@@ -66,6 +66,25 @@ FROM actors
 WHERE category = 'spoofed_crawler'
 ORDER BY n_requests DESC, ip_hash;
 
+-- name: identity_rotation
+-- title: Attackers rotating declared crawler identities (search and AI bots)
+-- Attack rules win over identity checks, so these actors are scanners, not spoofed_crawler:
+-- this table keeps the spoofing visible.
+SELECT r.ip_hash, a.category, a.as_org, a.country,
+       count(*) AS requests,
+       count(DISTINCT r.bot_name) AS crawler_names,
+       count(DISTINCT r.user_agent) AS user_agents,
+       CAST(epoch(max(r.timestamp)) - epoch(min(r.timestamp)) AS BIGINT) AS seconds,
+       CAST(CAST(min(r.timestamp) AS DATE) AS VARCHAR) AS day,
+       count(*) FILTER (WHERE r.status = 403) AS s403,
+       count(*) FILTER (WHERE r.status = 404) AS s404,
+       count(*) FILTER (WHERE r.status = 200) AS s200
+FROM requests r JOIN actors a USING (ip_hash)
+WHERE a.category <> 'verified_crawler'
+GROUP BY ALL
+HAVING count(DISTINCT r.bot_name) >= 5
+ORDER BY requests DESC, r.ip_hash;
+
 -- name: daily_timeline
 -- title: Daily requests by category
 WITH t AS (SELECT CAST(CAST(timestamp AS DATE) AS VARCHAR) AS day, actor_category FROM requests)
