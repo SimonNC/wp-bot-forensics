@@ -1,6 +1,7 @@
 import ipaddress
 from datetime import UTC, datetime
 
+import pandas as pd
 import pytest
 
 from botforensics.enrich import (
@@ -100,6 +101,7 @@ def test_bot_asn_consistent():
     assert bot_asn_consistent("Googlebot", "Hetzner Online GmbH") is False
     assert bot_asn_consistent("SomeNewBot", "Hetzner Online GmbH") is None
     assert bot_asn_consistent("Jetpack", None) is None
+    assert bot_asn_consistent("Jetpack", pd.NA) is None  # string columns hold pd.NA
 
 
 def test_is_internal_ua():

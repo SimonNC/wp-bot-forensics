@@ -67,12 +67,33 @@ def test_referer_static_and_night():
     assert a["night_ratio"] == 0.25
 
 
+def _post(ip, category="xmlrpc", minutes=0, **extra):
+    return {"ip_hash": ip, "method": "POST", "path_category": category,
+            "timestamp": T0 + timedelta(minutes=minutes), **extra}
+
+
 def test_campaign_members():
-    rows = [{"ip_hash": f"ip-{i}", "method": "POST", "path_category": "xmlrpc",
-             "user_agent": "KitUA/1.0", "timestamp": T0 + timedelta(minutes=i)} for i in range(3)]
-    rows.append({"ip_hash": "ip-solo", "method": "POST", "path_category": "xmlrpc",
-                 "user_agent": "Other/1.0"})
+    rows = [_post(f"ip-{i}", user_agent="KitUA/1.0", minutes=i) for i in range(3)]
+    rows.append(_post("ip-solo", user_agent="Other/1.0", minutes=90))  # next hour
+    rows.append(_post("ip-login", category="login", minutes=5))  # other target
     assert campaign_members(make(rows)) == {"ip-0", "ip-1", "ip-2"}
+
+
+def test_campaign_survives_rotating_user_agents():
+    uas = ["KitUA/1.0", "Mozilla/5.0 Chrome/120.0.0.0", "KitUA/1.0"]
+    rows = [_post(f"ip-{i}", user_agent=ua, minutes=10 * i) for i, ua in enumerate(uas)]
+    assert campaign_members(make(rows)) == {"ip-0", "ip-1", "ip-2"}
+
+
+def test_campaign_ignores_verified_crawlers():
+    rows = [_post(f"ip-{i}", minutes=i) for i in range(2)]
+    rows.append(_post("ip-jetpack", minutes=3, user_agent="Jetpack by WordPress.com",
+                      ua_kind="declared_bot", bot_name="Jetpack", as_org="Automattic, Inc"))
+    assert campaign_members(make(rows)) == set()
+    # A spoofed Jetpack still counts.
+    rows.append(_post("ip-fake", minutes=4, ua_kind="declared_bot", bot_name="Jetpack",
+                      as_org="Hetzner Online GmbH"))
+    assert campaign_members(make(rows)) == {"ip-0", "ip-1", "ip-fake"}
 
 
 def test_allowlisted_ip_is_true_if_any_request_is_allowlisted():

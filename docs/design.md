@@ -68,7 +68,7 @@ data/raw/*.log.gz              data/raw/cerber/*.csv
 | 3 | 4xx and 403 rate | Scanners request paths that do not exist or are forbidden. |
 | 4 | Sensitive path probes (`.env`, `.git`, `wp-config`, webshell names) | No human requests `/.env`. |
 | 5 | POST bursts on `xmlrpc.php` / `wp-login.php` (10 min) | Brute force / credential stuffing signature. |
-| 6 | Distributed campaigns: same UA and target across IPs in a window | Stuffing spreads attempts to stay under per-IP limits. |
+| 6 | Distributed campaigns: ≥ 3 IPs POSTing to the same login target (`wp-login`/custom login, or `xmlrpc.php`) in the same hour, whatever their user-agents; crawlers verified on their operator's network are left out | Stuffing spreads attempts to stay under per-IP limits and rotates user-agents. |
 | 7 | UA missing, tool (`curl`, `python-requests`…) or outdated browser | Bot kits freeze a UA; browsers auto-update. |
 | 8 | Declared bot vs. ASN (Googlebot from Google, Jetpack from Automattic) | Claiming a name is free, owning the IP is not. |
 | 9 | Datacenter ASN (explicit hosting providers only) | Real visitors browse from ISPs, not cloud servers. Evidence only: never enough on its own to call an actor a bot. |

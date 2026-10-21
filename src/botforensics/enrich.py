@@ -128,7 +128,7 @@ def is_datacenter(as_org: str | None) -> bool:
 
 
 def bot_asn_consistent(bot_name: str | None, as_org: str | None) -> bool | None:
-    if bot_name not in BOT_ASN or not as_org:
+    if bot_name not in BOT_ASN or not isinstance(as_org, str) or not as_org:
         return None
     lowered = as_org.lower()
     return any(k in lowered for k in BOT_ASN[bot_name])

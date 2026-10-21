@@ -2,6 +2,8 @@
 
 import pandas as pd
 
+from botforensics.enrich import bot_asn_consistent
+
 LOCAL_OFFSET = pd.Timedelta(hours=11)  # local time, no daylight saving time
 LOGIN_CATEGORIES = ["login", "xmlrpc"]
 
@@ -29,11 +31,18 @@ def _first(series: pd.Series):
 
 
 def campaign_members(req: pd.DataFrame, min_ips: int = 3, window: str = "1h") -> set[str]:
-    """IPs sharing a user-agent on login endpoints with others in the same window."""
+    """IPs posting to the same login endpoint as other IPs in the same window.
+
+    Keyed on the target, not the user-agent: stuffing kits rotate user-agents. Crawlers verified
+    on their operator's network (Jetpack from Automattic) are legitimate XML-RPC clients.
+    """
     login = _login_posts(req)
+    verified = [bot_asn_consistent(b, o) is True
+                for b, o in zip(login["bot_name"], login["as_org"], strict=True)]
+    login = login[~pd.Series(verified, index=login.index, dtype=bool)]
     if login.empty:
         return set()
-    key = login["user_agent"].fillna("-") + "|" + login["timestamp"].dt.floor(window).astype(str)
+    key = login["path_category"] + "|" + login["timestamp"].dt.floor(window).astype(str)
     ips_per_key = login.groupby(key)["ip_hash"].nunique()
     hot = ips_per_key[ips_per_key >= min_ips].index
     return set(login.loc[key.isin(hot), "ip_hash"])
