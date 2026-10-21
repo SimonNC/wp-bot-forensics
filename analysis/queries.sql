@@ -1,5 +1,5 @@
 -- DuckDB queries over data/processed/*.parquet (views: requests, actors, cerber_events).
--- Each block: a name line, then a title line, then one SQL statement.
+-- Each block: a "-- name:" line, then a "-- title:" line, then one SQL statement.
 
 -- name: overview
 -- title: Overview
@@ -41,7 +41,7 @@ LIMIT 10;
 -- title: Networks (ASN) hosting the most bot traffic
 SELECT coalesce(as_org, '(unknown)') AS as_org,
        count(*) AS bot_actors,
-       sum(n_requests) AS requests
+       CAST(sum(n_requests) AS BIGINT) AS requests
 FROM actors
 WHERE category NOT IN ('internal', 'unknown')
 GROUP BY 1
@@ -68,7 +68,7 @@ ORDER BY n_requests DESC;
 
 -- name: daily_timeline
 -- title: Daily requests by category
-WITH t AS (SELECT CAST(timestamp AS DATE) AS day, actor_category FROM requests)
+WITH t AS (SELECT CAST(CAST(timestamp AS DATE) AS VARCHAR) AS day, actor_category FROM requests)
 PIVOT t ON actor_category USING count(*) GROUP BY day ORDER BY day;
 
 -- name: defence_layers
@@ -92,7 +92,7 @@ WHERE event_group = 'malicious_request' AND timestamp BETWEEN lo AND hi;
 -- title: Rules vs. Isolation Forest
 SELECT category,
        count(*) AS actors,
-       sum(CASE WHEN iforest_outlier THEN 1 ELSE 0 END) AS iforest_outliers
+       CAST(sum(CASE WHEN iforest_outlier THEN 1 ELSE 0 END) AS BIGINT) AS iforest_outliers
 FROM actors
 GROUP BY category
 ORDER BY actors DESC;

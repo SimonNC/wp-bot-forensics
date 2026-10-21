@@ -1,5 +1,7 @@
 """DuckDB analysis over the Parquet outputs → Markdown findings."""
 
+import math
+import re
 from pathlib import Path
 
 import duckdb
@@ -11,9 +13,11 @@ VIEWS = ("requests", "actors", "cerber_events")
 
 def load_queries(path: Path) -> list[tuple[str, str, str]]:
     queries = []
-    for block in path.read_text(encoding="utf-8").split("-- name:")[1:]:
+    for block in re.split(r"(?m)^-- name:", path.read_text(encoding="utf-8"))[1:]:
         lines = block.strip().splitlines()
         name = lines[0].strip()
+        if len(lines) < 2 or not lines[1].startswith("-- title:"):
+            raise ValueError(f"query {name!r}: line 2 must start with '-- title:'")
         title = lines[1].removeprefix("-- title:").strip()
         queries.append((name, title, "\n".join(lines[2:]).strip()))
     return queries
@@ -49,10 +53,30 @@ def build_report(processed: Path, queries: Path) -> str:
     return "\n".join(parts)
 
 
-def write_review_sample(processed: Path, out: Path, n: int = 30, seed: int = 42) -> int:
+def _has_labels(path: Path) -> bool:
+    if not path.exists():
+        return False
+    df = pd.read_csv(path, dtype=str, keep_default_na=False)
+    return "my_category" in df and bool((df["my_category"].str.strip() != "").any())
+
+
+def write_review_sample(
+    processed: Path, out: Path, n: int = 30, seed: int = 42, force: bool = False
+) -> int:
+    if not force and _has_labels(out):
+        raise FileExistsError(f"{out} already holds my_category labels; use --force to overwrite")
     actors = pd.read_parquet(processed / "actors.parquet")
     pool = actors[actors["category"] != "internal"]
-    sample = pool.sample(n=min(n, len(pool)), random_state=seed)
+    per_cat = math.ceil(n / max(pool["category"].nunique(), 1))
+    picked = pd.concat(
+        [g.sample(n=min(per_cat, len(g)), random_state=seed) for _, g in pool.groupby("category")]
+    )
+    while len(picked) > n:  # rounding can overshoot: trim the best-represented category
+        biggest = picked["category"].value_counts().index[0]
+        picked = picked.drop(picked[picked["category"] == biggest].index[-1])
+    rest = pool.drop(picked.index)
+    top_up = rest.sample(n=min(n - len(picked), len(rest)), random_state=seed)
+    sample = pd.concat([picked, top_up]).sort_values("category", kind="stable")
     cols = ["ip_hash", "category", "n_requests", "as_org", "top_user_agent", "iforest_outlier"]
     review = sample[cols].assign(reasons=sample["reasons"].map("; ".join), my_category="")
     review.to_csv(out, index=False)

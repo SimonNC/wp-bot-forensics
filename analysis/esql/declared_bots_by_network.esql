@@ -1,3 +1,4 @@
+// Declared bots by network and final category (spoofing shows as category/reasons)
 FROM weblogs-actors
 | WHERE ua_kind == "declared_bot"
 | STATS actors = COUNT(*), requests = SUM(n_requests) BY bot_name, as_org, category

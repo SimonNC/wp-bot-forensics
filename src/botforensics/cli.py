@@ -1,6 +1,7 @@
 """Command line: python -m botforensics <command>."""
 
 import argparse
+import sys
 from pathlib import Path
 
 from botforensics.config import load_settings
@@ -51,7 +52,12 @@ def cmd_report(args, settings) -> int:
 def cmd_review(args, settings) -> int:
     from botforensics.report import write_review_sample
 
-    print(f"{write_review_sample(Path(args.processed), Path(args.out))} actors -> {args.out}")
+    try:
+        n = write_review_sample(Path(args.processed), Path(args.out), force=args.force)
+    except FileExistsError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    print(f"{n} actors -> {args.out}")
     return 0
 
 
@@ -92,6 +98,7 @@ def build_parser() -> argparse.ArgumentParser:
     review = sub.add_parser("review", help="draw 30 actors for manual validation")
     review.add_argument("--processed", default="data/processed")
     review.add_argument("--out", default="analysis/review_sample.csv")
+    review.add_argument("--force", action="store_true", help="overwrite existing labels")
     review.set_defaults(func=cmd_review)
 
     esql = sub.add_parser("esql", help="run ES|QL query files against Elasticsearch")
