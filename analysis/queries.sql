@@ -73,20 +73,22 @@ PIVOT t ON actor_category USING count(*) GROUP BY day ORDER BY day;
 
 -- name: defence_layers
 -- title: What each defence layer sees (same period)
-WITH period AS (SELECT min(timestamp) AS lo, max(timestamp) AS hi FROM requests)
+-- Explicit casts: DuckDB >= 2 reads Parquet timestamps as TIMESTAMPTZ_NS and refuses to mix precisions.
+WITH period AS (SELECT CAST(min(timestamp) AS TIMESTAMPTZ) AS lo,
+                       CAST(max(timestamp) AS TIMESTAMPTZ) AS hi FROM requests)
 SELECT 'Apache: POST /xmlrpc.php' AS observation, count(*) AS n
 FROM requests WHERE path_category = 'xmlrpc' AND method = 'POST'
 UNION ALL
 SELECT 'Cerber: XML-RPC requests refused', count(*)
 FROM cerber_events, period
-WHERE event LIKE '%XML-RPC%' AND timestamp BETWEEN lo AND hi
+WHERE event LIKE '%XML-RPC%' AND CAST(timestamp AS TIMESTAMPTZ) BETWEEN lo AND hi
 UNION ALL
 SELECT 'Apache: sensitive path probes', count(*)
 FROM requests WHERE path_category = 'sensitive_probe'
 UNION ALL
 SELECT 'Cerber: malicious requests', count(*)
 FROM cerber_events, period
-WHERE event_group = 'malicious_request' AND timestamp BETWEEN lo AND hi;
+WHERE event_group = 'malicious_request' AND CAST(timestamp AS TIMESTAMPTZ) BETWEEN lo AND hi;
 
 -- name: rules_vs_iforest
 -- title: Rules vs. Isolation Forest
