@@ -8,14 +8,16 @@ from botforensics.cerber import CERBER_HEADER, read_activity
 from botforensics.config import Settings
 from botforensics.geo import GeoLookup, IpInfo, write_sidecar
 from botforensics.parse import format_time, open_text, parse_line
+from botforensics.pipeline import require_secret_key
 from botforensics.privacy import Redactor, pseudonymise, strip_query
 
 
 def _quote(value: str | None) -> str:
-    return (value or "-").replace('"', '\\"')
+    return (value or "-").replace("\\", "\\\\").replace('"', '\\"')
 
 
 def make_sample(raw_dir: Path, day: str, out_dir: Path, settings: Settings) -> dict[str, int]:
+    require_secret_key(settings)
     geo = GeoLookup(settings.asn_db, settings.country_db)
     redact = Redactor(settings.site_domain, settings.site_label, settings.custom_login_slug)
     key = settings.pseudo_key
@@ -23,7 +25,8 @@ def make_sample(raw_dir: Path, day: str, out_dir: Path, settings: Settings) -> d
 
     def pseudo(ip: str) -> str:
         ip_hash = pseudonymise(ip, key)
-        infos.setdefault(ip_hash, geo.lookup(ip))
+        if ip_hash not in infos:
+            infos[ip_hash] = geo.lookup(ip)
         return ip_hash
 
     (out_dir / "apache").mkdir(parents=True, exist_ok=True)
@@ -57,7 +60,7 @@ def make_sample(raw_dir: Path, day: str, out_dir: Path, settings: Settings) -> d
                 rec["status"],
                 pseudonymise(rec["username"], key, prefix="user-") if rec["username"] else "",
                 f"{rec['timestamp'].timestamp():.4f}",
-                redact(rec["url"]) or "",
+                strip_query(redact(rec["url"])) or "",
             ])
     with (out_dir / "cerber" / f"activity-{day}.csv").open(
             "w", encoding="utf-8", newline="") as fh:

@@ -6,7 +6,7 @@ from pathlib import Path
 import pandas as pd
 
 from botforensics.geo import GeoLookup
-from botforensics.privacy import Redactor, is_pseudonym, pseudonymise
+from botforensics.privacy import Redactor, is_pseudonym, pseudonymise, strip_query
 
 # Original column names, used when writing the pseudonymised sample.
 CERBER_HEADER = ["Adresse IP", "Événement", "Statut", "Nom d’utilisateur",
@@ -73,7 +73,7 @@ def prepare_events(raw: pd.DataFrame, key: str, redact: Redactor,
         "username_hash": raw["username"].map(
             lambda u: None if not u else (u if is_pseudonym(u, "user-")
                                           else pseudonymise(u, key, prefix="user-"))),
-        "url": raw["url"].map(lambda u: redact(u) if u else None),
+        "url": raw["url"].map(lambda u: strip_query(redact(u)) if u else None),
     })
     return ev.astype(EVENT_DTYPES).reset_index(drop=True)
 

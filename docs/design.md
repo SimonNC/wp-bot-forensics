@@ -83,14 +83,18 @@ Dropped: sequential product browsing (no catalogue on this site), replaced by #1
 Rules are applied in order; each returns its reasons (e.g.
 `["xmlrpc_post_10min=48", "asn=datacenter"]`), stored with the verdict.
 
-1. `internal` — own monitors, WP-cron, admin
-2. `verified_crawler` — declared bot, consistent ASN
-3. `spoofed_crawler` — declared bot, inconsistent ASN
-4. `credential_attack` — indicators 5–6
-5. `vuln_scanner` — indicators 3–4
+1. `internal` — own monitors, WP-cron, admin (only when no attack signal fires)
+2. `credential_attack` — indicators 5–6
+3. `vuln_scanner` — indicators 3–4
+4. `spoofed_crawler` — declared bot, inconsistent ASN
+5. `verified_crawler` — declared bot, consistent ASN (only when no attack signal fires)
 6. `form_spam` — indicator 13
 7. `generic_bot` — tool/missing UA, abnormal rhythm, datacenter
 8. `unknown` — everything else (probable human)
+
+Attack behaviour is ranked before identity claims, because a declared crawler name is
+trivially spoofed (e.g. a fake "Jetpack" UA used for XML-RPC credential stuffing); the
+spoofing remains visible in the stored reasons.
 
 Isolation Forest on log-scaled indicators surfaces `unknown` IPs that look
 automated, to improve rules. It never overrides a rule.

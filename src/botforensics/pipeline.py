@@ -31,9 +31,14 @@ def find_inputs(data_dir: Path) -> tuple[list[Path], list[Path], Path | None]:
     return apache, cerber, sidecar if sidecar.exists() else None
 
 
-def _check_key(settings: Settings, hosts) -> None:
-    if settings.pseudo_key == DEV_KEY and any(is_ip(h) for h in hosts):
+def require_secret_key(settings: Settings) -> None:
+    if settings.pseudo_key == DEV_KEY:
         raise RuntimeError("Real IP addresses found: set a secret PSEUDO_KEY in .env first")
+
+
+def _check_key(settings: Settings, hosts) -> None:
+    if any(is_ip(h) for h in hosts):
+        require_secret_key(settings)
 
 
 def run(data_dir: Path, settings: Settings) -> Result:

@@ -74,18 +74,18 @@ def signals(a: Mapping) -> dict[str, str]:
 def classify(a: Mapping) -> tuple[str, list[str]]:
     s = signals(a)
     fired = s.keys()
-    # Friendly names are spoofable: attack behaviour wins.
-    if fired & {"internal_ua", "cerber_logged_in"} and not fired & (CREDENTIAL | SCANNER):
+    # Attack behaviour wins over identity claims; spoofing stays visible in reasons.
+    attack = fired & (CREDENTIAL | SCANNER)
+    if fired & {"internal_ua", "cerber_logged_in"} and not attack:
         category = "internal"
-    elif "bot_asn_mismatch" in fired:
-        category = "spoofed_crawler"
-    elif "declared_bot" in fired and not fired & (CREDENTIAL | SCANNER):
-        # A declared name does not excuse attack behaviour.
-        category = "verified_crawler"
     elif fired & CREDENTIAL:
         category = "credential_attack"
     elif fired & SCANNER:
         category = "vuln_scanner"
+    elif "bot_asn_mismatch" in fired:
+        category = "spoofed_crawler"
+    elif "declared_bot" in fired:
+        category = "verified_crawler"
     elif fired & FORM:
         category = "form_spam"
     elif fired & GENERIC:

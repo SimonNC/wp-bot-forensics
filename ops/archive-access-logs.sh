@@ -22,9 +22,19 @@ while [ "$day" != "$today" ]; do
   out="$DEST/access-$day.log.gz"
   if [ ! -s "$out" ]; then
     # stdout only (stderr = Apache error log); keep combined-format lines
-    docker logs --since "${day}T00:00:00Z" --until "${next}T00:00:00Z" "$CONTAINER" 2>/dev/null \
-      | grep -E '^[^ ]+ [^ ]+ [^ ]+ \[' | gzip -9 > "$out.tmp"
+    # POSIX sh has no pipefail: capture docker logs first so a failure is not
+    # archived as an empty file.
+    if ! docker logs --since "${day}T00:00:00Z" --until "${next}T00:00:00Z" "$CONTAINER" \
+        > "$out.raw" 2>/dev/null; then
+      echo "$(date -u +%FT%TZ) ERROR: docker logs failed for $day, not archived" >&2
+      rm -f "$out.raw" "$out.tmp"
+      day="$next"
+      continue
+    fi
+    # grep exits 1 when nothing matches: an empty but valid archive is fine here
+    grep -E '^[^ ]+ [^ ]+ [^ ]+ \[' < "$out.raw" | gzip -9 > "$out.tmp" || true
     mv "$out.tmp" "$out"
+    rm -f "$out.raw"
     echo "$(date -u +%FT%TZ) archived $day: $(zcat "$out" | wc -l) lines"
   fi
   day="$next"

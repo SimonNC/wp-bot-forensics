@@ -35,6 +35,8 @@ def cat(**overrides):
         ({"ua_kind": "declared_bot", "bot_name": "Googlebot", "as_org": "Hetzner Online GmbH"},
          "spoofed_crawler"),
         ({"login_posts_10min_max": 15, "login_posts": 15}, "credential_attack"),
+        ({"ua_kind": "declared_bot", "bot_name": "Googlebot", "as_org": "Hetzner Online GmbH",
+          "login_posts_10min_max": 15, "login_posts": 15}, "credential_attack"),
         ({"in_campaign": True, "login_posts": 2}, "credential_attack"),
         # Genuine Jetpack network, but attack behaviour: the declared name is no excuse.
         ({"ua_kind": "declared_bot", "bot_name": "Jetpack", "as_org": "Automattic, Inc",
@@ -61,6 +63,14 @@ def test_reasons_are_explicit():
     assert category == "credential_attack"
     assert "login_posts_10min=48" in reasons
     assert "datacenter=Microsoft Corporation" in reasons
+
+
+def test_spoofed_attacker_keeps_spoofing_in_reasons():
+    category, reasons = cat(ua_kind="declared_bot", bot_name="Googlebot",
+                            as_org="Hetzner Online GmbH", login_posts_10min_max=15,
+                            login_posts=15)
+    assert category == "credential_attack"
+    assert any(r.startswith("Googlebot_from=") for r in reasons)
 
 
 def test_nan_values_do_not_trigger():

@@ -43,6 +43,16 @@ def test_prepare_events_maps_groups_and_hides_secrets(tmp_path):
     assert ev["url"].isna().iloc[3]
 
 
+def test_url_query_string_is_dropped(tmp_path):
+    path = tmp_path / "activity.csv"
+    with_query = CSV.replace('"site.example/wp-login.php"', '"site.example/wp-login.php?redirect_to=x"')
+    path.write_text(with_query, encoding="utf-8")
+    ev = prepare_events(read_activity(path), "k",
+                        Redactor("site.example", "site.example", "secretadm"), GeoLookup(None, None))
+    assert "redirect_to" not in ev.to_csv()
+    assert not ev["url"].dropna().str.contains("?", regex=False).any()
+
+
 def test_verdict_takes_most_severe_event(tmp_path):
     _, ev = _events(tmp_path)
     v = cerber_verdicts(ev).set_index("ip_hash")
