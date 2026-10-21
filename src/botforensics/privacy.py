@@ -4,9 +4,13 @@ import hashlib
 import hmac
 import ipaddress
 import re
+from urllib.parse import unquote
 
 PSEUDO_PREFIX = "ip-"
 CUSTOM_LOGIN = "/<custom-login>"
+AUTHOR = "<author>"
+# WordPress author archives expose usernames: /author/<login>/.
+AUTHOR_RE = re.compile(r"(/author/)[^/?#\s]+", re.I)
 
 
 def pseudonymise(value: str, key: str, prefix: str = PSEUDO_PREFIX) -> str:
@@ -33,14 +37,18 @@ def strip_query(url: str | None) -> str | None:
 
 
 class Redactor:
-    """Hides the custom login URL (a security secret) and optionally the site domain."""
+    """Hides the custom login URL (a security secret), author archive usernames and optionally
+    the site domain."""
 
     def __init__(self, site_domain: str, site_label: str, custom_login_slug: str):
-        self.site_domain = site_domain
         self.site_label = site_label
+        slug = custom_login_slug.strip("/")
         self.slug_re = (
-            re.compile(rf"/{re.escape(custom_login_slug)}(?=/|\?|$)")
-            if custom_login_slug
+            re.compile(rf"/{re.escape(slug)}(?=[/?#;\s]|$)", re.I) if slug else None
+        )
+        self.domain_re = (
+            re.compile(re.escape(site_domain), re.I)
+            if site_domain and site_label != site_domain
             else None
         )
 
@@ -49,6 +57,11 @@ class Redactor:
             return None
         if self.slug_re:
             text = self.slug_re.sub(CUSTOM_LOGIN, text)
-        if self.site_domain and self.site_label != self.site_domain:
-            text = text.replace(self.site_domain, self.site_label)
+            # Percent-encoded slug (/%73ecretadm/): only then is the decoded form kept.
+            decoded = unquote(text)
+            if self.slug_re.search(decoded):
+                text = self.slug_re.sub(CUSTOM_LOGIN, decoded)
+        text = AUTHOR_RE.sub(rf"\g<1>{AUTHOR}", text)
+        if self.domain_re:
+            text = self.domain_re.sub(self.site_label, text)
         return text

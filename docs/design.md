@@ -25,7 +25,9 @@ detector as a safety net.
   time, after ASN/country lookup. No clear IP reaches Elasticsearch, Parquet or
   screenshots. The site name is a config value so it can be anonymised in one line.
   Usernames are hashed the same way, and the site's custom login URL is a
-  security secret: it is replaced by `/<custom-login>/` everywhere.
+  security secret: it is replaced by `/<custom-login>/` everywhere (case-insensitive,
+  also when percent-encoded). Author archive paths expose usernames:
+  `/author/<name>` becomes `/author/<author>` in paths, referers and Cerber URLs.
 
 ## Known biases
 
