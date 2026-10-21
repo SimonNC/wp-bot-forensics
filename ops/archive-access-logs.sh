@@ -27,15 +27,23 @@ while [ "$day" != "$today" ]; do
     if ! docker logs --since "${day}T00:00:00Z" --until "${next}T00:00:00Z" "$CONTAINER" \
         > "$out.raw" 2>/dev/null; then
       echo "$(date -u +%FT%TZ) ERROR: docker logs failed for $day, not archived" >&2
-      rm -f "$out.raw" "$out.tmp"
+      rm -f "$out.raw" "$out.lines" "$out.tmp"
       day="$next"
       continue
     fi
-    # grep exits 1 when nothing matches: an empty but valid archive is fine here
-    grep -E '^[^ ]+ [^ ]+ [^ ]+ \[' < "$out.raw" | gzip -9 > "$out.tmp" || true
-    mv "$out.tmp" "$out"
-    rm -f "$out.raw"
-    echo "$(date -u +%FT%TZ) archived $day: $(zcat "$out" | wc -l) lines"
+    # grep exits 1 when nothing matches (an empty but valid archive), 2 on error.
+    # No pipe into gzip: its status would hide grep's.
+    rc=0
+    grep -E '^[^ ]+ [^ ]+ [^ ]+ \[' < "$out.raw" > "$out.lines" || rc=$?
+    if [ "$rc" -le 1 ] && gzip -9 < "$out.lines" > "$out.tmp" && gzip -t "$out.tmp"; then
+      mv "$out.tmp" "$out"
+      rm -f "$out.raw" "$out.lines"
+      echo "$(date -u +%FT%TZ) archived $day: $(zcat "$out" | wc -l) lines"
+    else
+      echo "$(date -u +%FT%TZ) ERROR: filtering or compression failed for $day (grep=$rc)," \
+        "not archived" >&2
+      rm -f "$out.raw" "$out.lines" "$out.tmp"
+    fi
   fi
   day="$next"
 done
