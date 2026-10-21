@@ -1,5 +1,6 @@
 """Per-request enrichment: path and user-agent families, network origin, pseudonymised IP."""
 
+import ipaddress
 import re
 from collections.abc import Iterable
 from pathlib import PurePosixPath
@@ -56,7 +57,7 @@ BOT_ASN = {
 REQUEST_COLUMNS = ["timestamp", "ip_hash", "asn", "as_org", "country", "is_datacenter",
                    "method", "path", "path_category", "has_query", "status", "size",
                    "referer", "user_agent", "ua_kind", "bot_name", "chrome_major",
-                   "is_internal_ua"]
+                   "is_internal_ua", "is_allowlisted"]
 TEXT_COLUMNS = ["ip_hash", "as_org", "country", "method", "path", "path_category", "referer",
                 "user_agent", "ua_kind", "bot_name"]
 
@@ -136,8 +137,20 @@ def is_internal_ua(ua: str | None, site_label: str) -> bool:
     return re.fullmatch(rf"WordPress/[\d.]+; https?://{re.escape(site_label)}/?", ua) is not None
 
 
+def is_allowlisted(host: str, networks: Iterable[ipaddress.IPv4Network | ipaddress.IPv6Network]
+                   ) -> bool:
+    try:
+        ip = ipaddress.ip_address(host)
+    except ValueError:  # pseudonym or garbage
+        return False
+    return any(ip in net for net in networks)
+
+
 def enrich_requests(requests: Iterable[Request], geo: GeoLookup, key: str, redact: Redactor,
-                    site_label: str) -> pd.DataFrame:
+                    site_label: str,
+                    internal_networks: Iterable[ipaddress.IPv4Network | ipaddress.IPv6Network] = ()
+                    ) -> pd.DataFrame:
+    networks = tuple(internal_networks)
     rows = []
     for r in requests:
         info = geo.lookup(r.host)
@@ -163,6 +176,9 @@ def enrich_requests(requests: Iterable[Request], geo: GeoLookup, key: str, redac
             "bot_name": bot_name,
             "chrome_major": chrome_major(ua),
             "is_internal_ua": is_internal_ua(ua, site_label),
+            # Pseudonymised samples carry the flag in the sidecar; clear hosts are checked here.
+            "is_allowlisted": (info.allowlisted if is_pseudonym(r.host)
+                               else is_allowlisted(r.host, networks)),
         })
     df = pd.DataFrame(rows, columns=REQUEST_COLUMNS)
     df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)

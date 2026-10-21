@@ -25,6 +25,7 @@
       "distinct_paths": {"type": "integer"},
       "distinct_uas": {"type": "integer"},
       "internal_ua_ratio": {"type": "float"},
+      "allowlisted_ip": {"type": "boolean"},
       "ua_kind": {"type": "keyword"},
       "bot_name": {"type": "keyword"},
       "chrome_major_min": {"type": "short"},

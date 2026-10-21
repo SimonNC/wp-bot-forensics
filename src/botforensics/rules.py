@@ -32,6 +32,8 @@ def signals(a: Mapping) -> dict[str, str]:
     s: dict[str, str] = {}
     verdict = a.get("cerber_verdict")
     verdict = verdict if _present(verdict) else None
+    if a["allowlisted_ip"]:
+        s["allowlisted_ip"] = "allowlisted_operator_ip"
     if a["internal_ua_ratio"] >= 0.5:
         s["internal_ua"] = f"internal_ua_ratio={a['internal_ua_ratio']:.2f}"
     if verdict == "logged_in":
@@ -74,6 +76,9 @@ def signals(a: Mapping) -> dict[str, str]:
 def classify(a: Mapping) -> tuple[str, list[str]]:
     s = signals(a)
     fired = s.keys()
+    # Owned IPs cannot be spoofed like a user-agent: allowlist wins.
+    if "allowlisted_ip" in fired:
+        return "internal", list(s.values())
     # Attack behaviour wins over identity claims; spoofing stays visible in reasons.
     attack = fired & (CREDENTIAL | SCANNER)
     if fired & {"internal_ua", "cerber_logged_in"} and not attack:

@@ -11,7 +11,7 @@ BENIGN = {
     "form_posts": 0, "distinct_paths": 4, "distinct_uas": 1, "internal_ua_ratio": 0.0,
     "ua_kind": "browser", "bot_name": None, "chrome_major_min": 154.0,
     "top_user_agent": "Mozilla/5.0", "asn": 1, "as_org": "Orange", "country": "NC",
-    "is_datacenter": False, "cerber_verdict": None,
+    "is_datacenter": False, "cerber_verdict": None, "allowlisted_ip": False,
 }
 
 
@@ -24,6 +24,10 @@ def cat(**overrides):
     [
         ({}, "unknown"),
         ({"internal_ua_ratio": 0.9}, "internal"),
+        ({"allowlisted_ip": True}, "internal"),
+        ({"allowlisted_ip": True, "sensitive_probes": 3, "peak_rpm": 45, "ua_kind": "tool"},
+         "internal"),
+        ({"allowlisted_ip": True, "login_posts_10min_max": 15, "login_posts": 15}, "internal"),
         ({"cerber_verdict": "logged_in"}, "internal"),
         # Friendly names are spoofable: attack behaviour wins.
         ({"internal_ua_ratio": 0.9, "sensitive_probes": 3}, "vuln_scanner"),
@@ -83,3 +87,12 @@ def test_classify_actors_adds_columns():
     assert list(out["category"]) == ["unknown", "generic_bot"]
     assert out["reasons"].iloc[1] == ["ua=tool"]
     assert set(out["category"]) <= set(CATEGORIES)
+
+
+def test_allowlisted_reason_and_no_effect_otherwise():
+    category, reasons = classify({**BENIGN, "allowlisted_ip": True, "sensitive_probes": 2})
+    assert category == "internal"
+    assert "allowlisted_operator_ip" in reasons
+    category, reasons = classify({**BENIGN, "sensitive_probes": 2})
+    assert category == "vuln_scanner"
+    assert "allowlisted_operator_ip" not in reasons

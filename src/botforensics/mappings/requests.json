@@ -22,6 +22,7 @@
       "bot_name": {"type": "keyword"},
       "chrome_major": {"type": "short"},
       "is_internal_ua": {"type": "boolean"},
+      "is_allowlisted": {"type": "boolean"},
       "actor_category": {"type": "keyword"}
     }
   }

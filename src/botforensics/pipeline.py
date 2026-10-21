@@ -50,7 +50,8 @@ def run(data_dir: Path, settings: Settings) -> Result:
     stats = ParseStats()
     parsed = [r for path in apache for r in parse_file(path, stats)]
     _check_key(settings, (r.host for r in parsed))
-    requests = enrich_requests(parsed, geo, settings.pseudo_key, redact, settings.site_label)
+    requests = enrich_requests(parsed, geo, settings.pseudo_key, redact, settings.site_label,
+                                 settings.internal_networks)
 
     raw_events = [read_activity(path) for path in cerber_files]
     for raw in raw_events:

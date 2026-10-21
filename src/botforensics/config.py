@@ -1,5 +1,6 @@
 """Runtime settings, read from environment variables and an optional .env file."""
 
+import ipaddress
 import os
 from dataclasses import dataclass
 from pathlib import Path
@@ -20,6 +21,20 @@ class Settings:
     custom_login_slug: str
     asn_db: Path
     country_db: Path
+    internal_networks: tuple[ipaddress.IPv4Network | ipaddress.IPv6Network, ...]
+
+
+def parse_networks(value: str) -> tuple[ipaddress.IPv4Network | ipaddress.IPv6Network, ...]:
+    networks = []
+    for item in value.split(","):
+        item = item.strip()
+        if not item:
+            continue
+        try:
+            networks.append(ipaddress.ip_network(item, strict=False))
+        except ValueError as exc:
+            raise ValueError(f"Invalid INTERNAL_IPS item: {item!r}") from exc
+    return tuple(networks)
 
 
 def load_settings(env_file: str | None = ".env") -> Settings:
@@ -36,4 +51,5 @@ def load_settings(env_file: str | None = ".env") -> Settings:
         custom_login_slug=os.getenv("CUSTOM_LOGIN_SLUG", ""),
         asn_db=Path(os.getenv("ASN_DB", "data/geo/dbip-asn-lite.mmdb")),
         country_db=Path(os.getenv("COUNTRY_DB", "data/geo/dbip-country-lite.mmdb")),
+        internal_networks=parse_networks(os.getenv("INTERNAL_IPS", "")),
     )

@@ -10,8 +10,8 @@ FEATURE_COLUMNS = ["ip_hash", "n_requests", "first_seen", "last_seen", "peak_rpm
                    "login_posts_10min_max", "in_campaign", "robots_reads", "sitemap_reads",
                    "html_requests", "html_no_referer_ratio", "static_ratio", "night_ratio",
                    "form_posts", "distinct_paths", "distinct_uas", "internal_ua_ratio",
-                   "ua_kind", "bot_name", "chrome_major_min", "top_user_agent", "asn", "as_org",
-                   "country", "is_datacenter"]
+                   "allowlisted_ip", "ua_kind", "bot_name", "chrome_major_min",
+                   "top_user_agent", "asn", "as_org", "country", "is_datacenter"]
 
 
 def _login_posts(req: pd.DataFrame) -> pd.DataFrame:
@@ -82,6 +82,7 @@ def _features_for(ip: str, g: pd.DataFrame, in_campaign: bool) -> dict:
         "distinct_paths": int(g["path"].nunique()),
         "distinct_uas": int(uas.nunique()),
         "internal_ua_ratio": float(g["is_internal_ua"].mean()),
+        "allowlisted_ip": bool(g["is_allowlisted"].any()),
         "ua_kind": g["ua_kind"].mode().iat[0],
         "bot_name": _first(g["bot_name"]),
         "chrome_major_min": int(chrome.min()) if len(chrome) else None,

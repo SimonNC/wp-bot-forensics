@@ -17,6 +17,7 @@ def settings(tmp_path) -> Settings:
         custom_login_slug="secretadm",
         asn_db=tmp_path / "missing-asn.mmdb",
         country_db=tmp_path / "missing-country.mmdb",
+        internal_networks=(),
     )
 
 

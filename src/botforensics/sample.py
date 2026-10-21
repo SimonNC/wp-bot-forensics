@@ -1,11 +1,13 @@
 """Build a small, pseudonymised, re-processable sample from one day of raw data."""
 
 import csv
+from dataclasses import replace
 from datetime import date
 from pathlib import Path
 
 from botforensics.cerber import CERBER_HEADER, read_activity
 from botforensics.config import Settings
+from botforensics.enrich import is_allowlisted
 from botforensics.geo import GeoLookup, IpInfo, write_sidecar
 from botforensics.parse import format_time, open_text, parse_line
 from botforensics.pipeline import require_secret_key
@@ -26,7 +28,8 @@ def make_sample(raw_dir: Path, day: str, out_dir: Path, settings: Settings) -> d
     def pseudo(ip: str) -> str:
         ip_hash = pseudonymise(ip, key)
         if ip_hash not in infos:
-            infos[ip_hash] = geo.lookup(ip)
+            infos[ip_hash] = replace(geo.lookup(ip), allowlisted=is_allowlisted(
+                ip, settings.internal_networks))
         return ip_hash
 
     (out_dir / "apache").mkdir(parents=True, exist_ok=True)

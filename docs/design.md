@@ -83,7 +83,11 @@ Dropped: sequential product browsing (no catalogue on this site), replaced by #1
 Rules are applied in order; each returns its reasons (e.g.
 `["xmlrpc_post_10min=48", "asn=datacenter"]`), stored with the verdict.
 
-1. `internal` — own monitors, WP-cron, admin (only when no attack signal fires)
+1. `internal` — operator IPs from `INTERNAL_IPS` (secret, in `.env`) are classified
+   `internal` first, whatever they do; before this allowlist the operator's admin
+   sessions (45 req/min, `generic_bot`) and SEO audit (`vuln_scanner`) were flagged,
+   kept as a validation finding. Then own monitors, WP-cron, admin (only when no
+   attack signal fires)
 2. `credential_attack` — indicators 5–6
 3. `vuln_scanner` — indicators 3–4
 4. `spoofed_crawler` — declared bot, inconsistent ASN

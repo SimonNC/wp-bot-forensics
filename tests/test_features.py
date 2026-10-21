@@ -13,7 +13,8 @@ def make(rows: list[dict]) -> pd.DataFrame:
             "is_datacenter": False, "method": "GET", "path": "/", "path_category": "html",
             "has_query": False, "status": 200, "size": 1, "referer": "https://x/",
             "user_agent": "Mozilla/5.0", "ua_kind": "browser", "bot_name": None,
-            "chrome_major": None, "is_internal_ua": False}
+            "chrome_major": None, "is_internal_ua": False,
+            "is_allowlisted": False}
     df = pd.DataFrame([{**base, **r} for r in rows], columns=REQUEST_COLUMNS)
     df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
     return df
@@ -72,3 +73,8 @@ def test_campaign_members():
     rows.append({"ip_hash": "ip-solo", "method": "POST", "path_category": "xmlrpc",
                  "user_agent": "Other/1.0"})
     assert campaign_members(make(rows)) == {"ip-0", "ip-1", "ip-2"}
+
+
+def test_allowlisted_ip_is_true_if_any_request_is_allowlisted():
+    assert bool(one(make([{}, {"is_allowlisted": True}]))["allowlisted_ip"])
+    assert not one(make([{}, {}]))["allowlisted_ip"]

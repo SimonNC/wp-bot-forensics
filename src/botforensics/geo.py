@@ -15,6 +15,7 @@ class IpInfo:
     asn: int | None
     as_org: str | None
     country: str | None
+    allowlisted: bool = False
 
 
 EMPTY_INFO = IpInfo(None, None, None)
@@ -69,6 +70,7 @@ def load_sidecar(path: Path) -> dict[str, IpInfo]:
                 int(row["asn"]) if row["asn"] else None,
                 row["as_org"] or None,
                 row["country"] or None,
+                row.get("allowlisted") == "1",
             )
             for row in csv.DictReader(fh)
         }
@@ -77,6 +79,7 @@ def load_sidecar(path: Path) -> dict[str, IpInfo]:
 def write_sidecar(path: Path, infos: dict[str, IpInfo]) -> None:
     with path.open("w", encoding="utf-8", newline="") as fh:
         writer = csv.writer(fh)
-        writer.writerow(["ip_hash", "asn", "as_org", "country"])
+        writer.writerow(["ip_hash", "asn", "as_org", "country", "allowlisted"])
         for ip_hash, info in sorted(infos.items()):
-            writer.writerow([ip_hash, info.asn or "", info.as_org or "", info.country or ""])
+            writer.writerow([ip_hash, info.asn or "", info.as_org or "", info.country or "",
+                             int(info.allowlisted)])

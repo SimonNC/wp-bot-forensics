@@ -1,3 +1,4 @@
+import ipaddress
 from datetime import UTC, datetime
 
 import pytest
@@ -116,3 +117,29 @@ def test_enrich_requests_pseudonymises_and_redacts():
     assert row["chrome_major"] == 129
     assert row["ua_kind"] == "browser"
     assert "203.0.113.7" not in df.to_csv()
+
+
+def _req(host):
+    return Request(
+        host=host, timestamp=datetime(2026, 10, 14, 3, 0, tzinfo=UTC),
+        method="GET", path="/", has_query=False, protocol="HTTP/1.1",
+        status=200, size=1, referer=None, user_agent="Mozilla/5.0",
+    )
+
+
+def test_enrich_flags_allowlisted_hosts():
+    nets = (ipaddress.ip_network("203.0.113.7/32"), ipaddress.ip_network("2001:db8:1:2::/64"))
+    hosts = ["203.0.113.7", "2001:db8:1:2:aaaa::1", "203.0.113.8", "2001:db8:9::1"]
+    df = enrich_requests([_req(h) for h in hosts], GeoLookup(None, None), "k",
+                         Redactor("site.example", "site.example", ""), "site.example", nets)
+    assert list(df["is_allowlisted"]) == [True, True, False, False]
+    assert list(df.columns).index("is_allowlisted") == REQUEST_COLUMNS.index("is_internal_ua") + 1
+    assert "203.0.113" not in df.to_csv()
+
+
+def test_enrich_reads_allowlisted_from_sidecar_for_pseudonyms():
+    geo = GeoLookup(None, None, {"ip-0123456789abcdef": IpInfo(1, "x", "NC", True),
+                                 "ip-fedcba9876543210": IpInfo(1, "x", "NC")})
+    df = enrich_requests([_req("ip-0123456789abcdef"), _req("ip-fedcba9876543210")], geo, "k",
+                         Redactor("site.example", "site.example", ""), "site.example")
+    assert list(df["is_allowlisted"]) == [True, False]

@@ -1,4 +1,5 @@
 import gzip
+import ipaddress
 from dataclasses import replace
 
 import pytest
@@ -43,3 +44,23 @@ def test_sample_is_pseudonymised_and_reprocessable(tmp_path, settings):
     result = run(out, settings)
     assert result.stats.parsed == 1
     assert result.actors["category"].iloc[0] == "internal"  # Cerber logged_in
+
+
+def test_sample_records_allowlisted_ips_without_clear_ip(tmp_path, settings):
+    raw = tmp_path / "raw"
+    (raw / "apache").mkdir(parents=True)
+    (raw / "cerber").mkdir()
+    with gzip.open(raw / "apache" / "access-2026-10-14.log.gz", "wt") as fh:
+        fh.write(RAW)
+    out = tmp_path / "sample"
+    owned = replace(settings, internal_networks=(ipaddress.ip_network("203.0.113.0/24"),))
+
+    make_sample(raw, "2026-10-14", out, owned)
+
+    sidecar = (out / "ip_info.csv").read_text(encoding="utf-8")
+    assert sidecar.splitlines()[1].endswith(",1")
+    text = "".join(p.read_text(encoding="utf-8") for p in out.rglob("*") if p.is_file())
+    assert "203.0.113" not in text
+    result = run(out, settings)  # no networks configured: the flag comes from the sidecar
+    assert result.requests["is_allowlisted"].all()
+    assert result.actors["category"].iloc[0] == "internal"
