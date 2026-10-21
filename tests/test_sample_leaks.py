@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from botforensics.parse import parse_line
-from botforensics.privacy import is_pseudonym
+from botforensics.privacy import EMAIL_RE, MEDIA_RE, is_pseudonym
 
 SAMPLE = Path(__file__).parents[1] / "data" / "sample"
 IPV4_RE = re.compile(r"(?<![\d.])\d{1,3}(?:\.\d{1,3}){3}(?![\d.])")
@@ -17,7 +17,11 @@ pytestmark = pytest.mark.skipif(not (SAMPLE / "apache").is_dir(), reason="no ver
 
 
 def _clean_url(value: str | None) -> bool:
-    return not value or (IPV4_RE.search(value) is None and AUTHOR_RE.search(value) is None)
+    if not value:
+        return True
+    media = [m for m in MEDIA_RE.finditer(value) if not value[m.end(1):].startswith("<media>")]
+    return (IPV4_RE.search(value) is None and AUTHOR_RE.search(value) is None
+            and EMAIL_RE.search(value) is None and not media)
 
 
 def test_apache_sample_has_no_ip_or_username():

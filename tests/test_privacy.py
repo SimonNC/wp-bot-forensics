@@ -29,15 +29,15 @@ def test_is_ip_and_is_pseudonym():
 
 
 def test_redactor_replaces_login_slug_as_path_segment_only():
-    r = Redactor("site.example", "site.example", "secretadm")
+    r = Redactor("example.com", "example.com", "secretadm")
     assert r("/secretadm/") == "/<custom-login>/"
-    assert r("site.example/secretadm") == "site.example/<custom-login>"
-    assert r("https://site.example/secretadm/?x=1") == "https://site.example/<custom-login>/?x=1"
+    assert r("example.com/secretadm") == "example.com/<custom-login>"
+    assert r("https://example.com/secretadm/?x=1") == "https://example.com/<custom-login>/?x=1"
     assert r("/secretadmin") == "/secretadmin"
 
 
 def test_redactor_slug_is_case_insensitive_and_bounded():
-    r = Redactor("site.example", "site.example", "secretadm")
+    r = Redactor("example.com", "example.com", "secretadm")
     assert r("/SecretAdm/") == "/<custom-login>/"
     assert r("/secretadm#x") == "/<custom-login>#x"
     assert r("/secretadm;a") == "/<custom-login>;a"
@@ -47,13 +47,13 @@ def test_redactor_slug_is_case_insensitive_and_bounded():
 
 
 def test_redactor_slug_configured_with_slashes():
-    r = Redactor("site.example", "site.example", "/secretadm/")
+    r = Redactor("example.com", "example.com", "/secretadm/")
     assert r("/secretadm/") == "/<custom-login>/"
-    assert r("https://site.example/secretadm?x") == "https://site.example/<custom-login>?x"
+    assert r("https://example.com/secretadm?x") == "https://example.com/<custom-login>?x"
 
 
 def test_redactor_slug_percent_encoded():
-    r = Redactor("site.example", "site.example", "secretadm")
+    r = Redactor("example.com", "example.com", "secretadm")
     assert r("/%73ecretadm/") == "/<custom-login>/"
     assert r("/%53ECRETADM/x") == "/<custom-login>/x"
     # Other percent-encoded text is left as is.
@@ -61,10 +61,10 @@ def test_redactor_slug_percent_encoded():
 
 
 def test_redactor_author_archive_usernames():
-    r = Redactor("site.example", "site.example", "")
+    r = Redactor("example.com", "example.com", "")
     assert r("/author/jdoe/") == "/author/<author>"
     assert r("/author/jdoe") == "/author/<author>"
-    assert r("https://site.example/author/j.doe?x=1") == "https://site.example/author/<author>?x=1"
+    assert r("https://example.com/author/j.doe?x=1") == "https://example.com/author/<author>?x=1"
     assert r("/author/jdoe#top") == "/author/<author>#top"
     assert r("/Author/JDoe/page/2/") == "/author/<author>"
     assert r("/coauthor/x") == "/coauthor/x"
@@ -88,13 +88,41 @@ def test_redactor_author_encoded_and_odd_forms():
 
 
 def test_redactor_domain_case_insensitive():
-    r = Redactor("site.example", "site.example", "")
-    assert r("https://site.example/") == "https://site.example/"
+    r = Redactor("example.com", "site.example", "")
+    assert r("https://EXAMPLE.COM/") == "https://site.example/"
 
 
 def test_redactor_replaces_domain_when_label_differs():
-    r = Redactor("site.example", "site.example", "")
-    assert r("WordPress/7.1.3; https://site.example") == "WordPress/7.1.3; https://site.example"
+    r = Redactor("example.com", "site.example", "")
+    assert r("WordPress/7.1.3; https://example.com") == "WordPress/7.1.3; https://site.example"
+
+
+def test_redactor_replaces_site_name_in_paths():
+    r = Redactor("acme-vet.example", "site.example", "")
+    assert r("/wp-content/themes/acme-vet/logo.png") == "/wp-content/themes/site/logo.png"
+    assert r("/wp-content/themes/ACME-VET/") == "/wp-content/themes/site/"
+    assert r("https://acme-vet.example/x") == "https://site.example/x"
+    assert r("/uploads/cat-acme-vet.webp") == "/uploads/cat-site.webp"
+
+
+def test_redactor_hides_uploaded_media_names():
+    r = Redactor("", "", "")
+    assert r("/wp-content/uploads/2026/09/Jane-300x300-1.webp") == \
+        "/wp-content/uploads/2026/09/<media>.webp"
+    assert r("/wp-content/uploads/2021/04/1189_2722_n.JPG?x=1") == \
+        "/wp-content/uploads/2021/04/<media>.JPG?x=1"
+    assert r("https://a.example/wp-content/uploads/logo.png.webp") == \
+        "https://a.example/wp-content/uploads/<media>.webp"
+    # Attack probes stay visible.
+    assert r("/wp-content/uploads/2025/11/amp.php") == "/wp-content/uploads/2025/11/amp.php"
+    assert r("/wp-content/uploads/") == "/wp-content/uploads/"
+
+
+def test_redactor_hides_email_addresses():
+    r = Redactor("", "", "")
+    assert r("/mailto:jane.doe+web@mail.example") == "/mailto:<email>"
+    assert r("/contact/?to=a_b@c-d.co.uk") == "/contact/?to=<email>"
+    assert r("/wp-content/x@2x.png") == "/wp-content/x@2x.png"
 
 
 def test_redactor_noop_and_none():
