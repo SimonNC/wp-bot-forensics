@@ -1,6 +1,7 @@
+// One row per hour and category; LIMIT sized for months of data.
 FROM weblogs-requests
 | WHERE actor_category != "internal"
 | EVAL hour = DATE_TRUNC(1 hour, @timestamp)
 | STATS requests = COUNT(*) BY hour, actor_category
 | SORT hour ASC, actor_category ASC
-| LIMIT 500
+| LIMIT 10000
