@@ -1,0 +1,5 @@
+FROM weblogs-actors
+| WHERE ua_kind == "declared_bot"
+| STATS actors = COUNT(*), requests = SUM(n_requests) BY bot_name, as_org, category
+| SORT requests DESC
+| LIMIT 20

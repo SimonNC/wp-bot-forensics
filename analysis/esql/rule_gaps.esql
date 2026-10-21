@@ -1,0 +1,5 @@
+FROM weblogs-actors
+| WHERE category == "unknown" AND iforest_outlier == true
+| KEEP ip_hash, as_org, n_requests, peak_rpm, iforest_score, top_user_agent
+| SORT iforest_score DESC
+| LIMIT 10

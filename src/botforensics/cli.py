@@ -36,6 +36,36 @@ def cmd_make_sample(args, settings) -> int:
     return 0
 
 
+def cmd_report(args, settings) -> int:
+    from botforensics.report import build_report, review_agreement
+
+    text = build_report(Path(args.processed), Path(args.queries))
+    agreement = review_agreement(Path(args.review))
+    if agreement:
+        text += f"\n## Validation\n\n{agreement}\n"
+    Path(args.out).write_text(text, encoding="utf-8")
+    print(f"wrote {args.out}")
+    return 0
+
+
+def cmd_review(args, settings) -> int:
+    from botforensics.report import write_review_sample
+
+    print(f"{write_review_sample(Path(args.processed), Path(args.out))} actors -> {args.out}")
+    return 0
+
+
+def cmd_esql(args, settings) -> int:
+    from botforensics.es import connect
+
+    es = connect(settings)
+    for file in args.files:
+        print(f"== {file}")
+        resp = es.esql.query(query=Path(file).read_text(encoding="utf-8"), format="txt")
+        print(resp.body if isinstance(resp.body, str) else resp)
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="botforensics")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -51,6 +81,22 @@ def build_parser() -> argparse.ArgumentParser:
     sample.add_argument("--day", required=True, help="YYYY-MM-DD")
     sample.add_argument("--out", default="data/sample")
     sample.set_defaults(func=cmd_make_sample)
+
+    report = sub.add_parser("report", help="run DuckDB queries, write Markdown findings")
+    report.add_argument("--processed", default="data/processed")
+    report.add_argument("--queries", default="analysis/queries.sql")
+    report.add_argument("--review", default="analysis/review_sample.csv")
+    report.add_argument("--out", default="analysis/FINDINGS.md")
+    report.set_defaults(func=cmd_report)
+
+    review = sub.add_parser("review", help="draw 30 actors for manual validation")
+    review.add_argument("--processed", default="data/processed")
+    review.add_argument("--out", default="analysis/review_sample.csv")
+    review.set_defaults(func=cmd_review)
+
+    esql = sub.add_parser("esql", help="run ES|QL query files against Elasticsearch")
+    esql.add_argument("files", nargs="+")
+    esql.set_defaults(func=cmd_esql)
     return parser
 
 

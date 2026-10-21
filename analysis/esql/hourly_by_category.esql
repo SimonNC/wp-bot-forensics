@@ -1,0 +1,6 @@
+FROM weblogs-requests
+| WHERE actor_category != "internal"
+| EVAL hour = DATE_TRUNC(1 hour, @timestamp)
+| STATS requests = COUNT(*) BY hour, actor_category
+| SORT requests DESC
+| LIMIT 20

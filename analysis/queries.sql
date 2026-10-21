@@ -1,0 +1,112 @@
+-- DuckDB queries over data/processed/*.parquet (views: requests, actors, cerber_events).
+-- Each block: a name line, then a title line, then one SQL statement.
+
+-- name: overview
+-- title: Overview
+SELECT min(timestamp) AS first_request,
+       max(timestamp) AS last_request,
+       count(*) AS requests,
+       count(DISTINCT ip_hash) AS actors,
+       round(100.0 * avg(CASE WHEN status = 403 THEN 1 ELSE 0 END), 1) AS pct_403
+FROM requests;
+
+-- name: bot_share
+-- title: Estimated bot share (own monitoring traffic excluded)
+SELECT round(100.0 * avg(CASE WHEN actor_category <> 'unknown' THEN 1 ELSE 0 END), 1)
+         AS bot_share_pct_requests,
+       count(*) AS requests_considered
+FROM requests
+WHERE actor_category <> 'internal';
+
+-- name: category_share
+-- title: Traffic by actor category
+SELECT actor_category,
+       count(DISTINCT ip_hash) AS actors,
+       count(*) AS requests,
+       round(100.0 * count(*) / sum(count(*)) OVER (), 1) AS pct_requests
+FROM requests
+GROUP BY actor_category
+ORDER BY requests DESC;
+
+-- name: top_credential_attackers
+-- title: Top credential attackers (XML-RPC / login POSTs)
+SELECT ip_hash, as_org, country, login_posts, login_posts_10min_max, in_campaign,
+       array_to_string(reasons, '; ') AS reasons
+FROM actors
+WHERE category = 'credential_attack'
+ORDER BY login_posts DESC
+LIMIT 10;
+
+-- name: top_bot_networks
+-- title: Networks (ASN) hosting the most bot traffic
+SELECT coalesce(as_org, '(unknown)') AS as_org,
+       count(*) AS bot_actors,
+       sum(n_requests) AS requests
+FROM actors
+WHERE category NOT IN ('internal', 'unknown')
+GROUP BY 1
+ORDER BY requests DESC
+LIMIT 10;
+
+-- name: top_bot_user_agents
+-- title: User-agents used by bots
+SELECT coalesce(user_agent, '(none)') AS user_agent,
+       count(*) AS requests,
+       count(DISTINCT ip_hash) AS actors
+FROM requests
+WHERE actor_category NOT IN ('internal', 'unknown')
+GROUP BY 1
+ORDER BY requests DESC
+LIMIT 10;
+
+-- name: spoofed_crawlers
+-- title: Crawlers whose network contradicts their declared name
+SELECT ip_hash, bot_name, as_org, n_requests, top_user_agent
+FROM actors
+WHERE category = 'spoofed_crawler'
+ORDER BY n_requests DESC;
+
+-- name: daily_timeline
+-- title: Daily requests by category
+WITH t AS (SELECT CAST(timestamp AS DATE) AS day, actor_category FROM requests)
+PIVOT t ON actor_category USING count(*) GROUP BY day ORDER BY day;
+
+-- name: defence_layers
+-- title: What each defence layer sees (same period)
+WITH period AS (SELECT min(timestamp) AS lo, max(timestamp) AS hi FROM requests)
+SELECT 'Apache: POST /xmlrpc.php' AS observation, count(*) AS n
+FROM requests WHERE path_category = 'xmlrpc' AND method = 'POST'
+UNION ALL
+SELECT 'Cerber: XML-RPC requests refused', count(*)
+FROM cerber_events, period
+WHERE event LIKE '%XML-RPC%' AND timestamp BETWEEN lo AND hi
+UNION ALL
+SELECT 'Apache: sensitive path probes', count(*)
+FROM requests WHERE path_category = 'sensitive_probe'
+UNION ALL
+SELECT 'Cerber: malicious requests', count(*)
+FROM cerber_events, period
+WHERE event_group = 'malicious_request' AND timestamp BETWEEN lo AND hi;
+
+-- name: rules_vs_iforest
+-- title: Rules vs. Isolation Forest
+SELECT category,
+       count(*) AS actors,
+       sum(CASE WHEN iforest_outlier THEN 1 ELSE 0 END) AS iforest_outliers
+FROM actors
+GROUP BY category
+ORDER BY actors DESC;
+
+-- name: rules_vs_cerber
+-- title: Rules vs. WP Cerber verdicts (actors)
+WITH t AS (SELECT category, coalesce(cerber_verdict, 'none') AS cerber_verdict FROM actors)
+PIVOT t ON cerber_verdict USING count(*) GROUP BY category ORDER BY category;
+
+-- name: rule_gaps
+-- title: Rule gaps: 'unknown' actors flagged by the Isolation Forest
+SELECT ip_hash, as_org, n_requests, peak_rpm, round(iforest_score, 3) AS score,
+       top_user_agent
+FROM actors
+WHERE category = 'unknown' AND iforest_outlier
+ORDER BY score DESC
+LIMIT 10;
