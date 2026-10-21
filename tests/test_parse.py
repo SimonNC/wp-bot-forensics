@@ -61,6 +61,11 @@ def test_garbage_line_returns_none():
     assert parse_line("not a log line") is None
 
 
+def test_non_numeric_size_is_malformed():
+    line = '203.0.113.7 - - [14/Oct/2026:00:00:00 +0000] "GET / HTTP/1.1" 200 abc "-" "x"'
+    assert parse_line(line) is None
+
+
 def test_parse_file_counts_malformed(tmp_path):
     path = tmp_path / "access.log.gz"
     with gzip.open(path, "wt") as fh:

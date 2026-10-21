@@ -9,7 +9,7 @@ from pathlib import Path
 
 LINE_RE = re.compile(
     r'^(?P<host>\S+) \S+ (?P<user>\S+) \[(?P<time>[^\]]+)\] '
-    r'"(?P<request>(?:[^"\\]|\\.)*)" (?P<status>\d{3}) (?P<size>\S+) '
+    r'"(?P<request>(?:[^"\\]|\\.)*)" (?P<status>\d{3}) (?P<size>\d+|-) '
     r'"(?P<referer>(?:[^"\\]|\\.)*)" "(?P<ua>(?:[^"\\]|\\.)*)"\s*$'
 )
 TIME_RE = re.compile(r"(\d{2})/(\w{3})/(\d{4}):(\d{2}):(\d{2}):(\d{2}) ([+-])(\d{2})(\d{2})")
