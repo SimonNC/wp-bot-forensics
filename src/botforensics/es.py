@@ -29,6 +29,7 @@ def connect(settings: Settings) -> Elasticsearch:
 
 def to_documents(df: pd.DataFrame, time_col: str | None) -> list[dict]:
     # to_json handles NaN/NA → null, numpy scalars and ISO-8601 dates in one pass.
+    # date_unit="s": the Apache logs have second resolution.
     docs = json.loads(df.to_json(orient="records", date_format="iso", date_unit="s"))
     if time_col:
         for doc in docs:

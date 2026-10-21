@@ -2,10 +2,10 @@
 # Ports are bound to 127.0.0.1 only. Secrets come from .env (see .env.example).
 services:
   es01:
-    image: docker.elastic.co/elasticsearch/elasticsearch:${STACK_VERSION}
+    image: docker.elastic.co/elasticsearch/elasticsearch:${STACK_VERSION:?set STACK_VERSION in .env}
     environment:
       - discovery.type=single-node
-      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
+      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD:?set ELASTIC_PASSWORD in .env}
       - xpack.security.enabled=true
       - xpack.security.http.ssl.enabled=false
       - xpack.security.transport.ssl.enabled=false
@@ -16,30 +16,30 @@ services:
     volumes:
       - esdata:/usr/share/elasticsearch/data
     healthcheck:
-      test: ["CMD-SHELL", "curl -s -u elastic:${ELASTIC_PASSWORD} http://localhost:9200/_cluster/health | grep -qE '\"status\":\"(green|yellow)\"'"]
+      test: ["CMD-SHELL", "curl -s -u elastic:${ELASTIC_PASSWORD:?set ELASTIC_PASSWORD in .env} http://localhost:9200/_cluster/health | grep -qE '\"status\":\"(green|yellow)\"'"]
       interval: 10s
       timeout: 10s
       retries: 30
 
   setup:
     # One-shot job: give the built-in kibana_system user its password.
-    image: docker.elastic.co/elasticsearch/elasticsearch:${STACK_VERSION}
+    image: docker.elastic.co/elasticsearch/elasticsearch:${STACK_VERSION:?set STACK_VERSION in .env}
     depends_on:
       es01:
         condition: service_healthy
     command: >
-      bash -c 'until curl -s -X POST -u "elastic:${ELASTIC_PASSWORD}" -H "Content-Type: application/json" http://es01:9200/_security/user/kibana_system/_password -d "{\"password\":\"${KIBANA_PASSWORD}\"}" | grep -q "^{}"; do sleep 5; done; echo "kibana_system password set"'
+      bash -c 'for i in $$(seq 1 30); do curl -s -X POST -u "elastic:${ELASTIC_PASSWORD:?set ELASTIC_PASSWORD in .env}" -H "Content-Type: application/json" http://es01:9200/_security/user/kibana_system/_password -d "{\"password\":\"${KIBANA_PASSWORD:?set KIBANA_PASSWORD in .env}\"}" | grep -q "^{}" && echo "kibana_system password set" && exit 0; sleep 5; done; echo "ERROR: could not set kibana_system password after 30 attempts (check ELASTIC_PASSWORD and KIBANA_PASSWORD in .env)" >&2; exit 1'
 
   kibana:
-    image: docker.elastic.co/kibana/kibana:${STACK_VERSION}
+    image: docker.elastic.co/kibana/kibana:${STACK_VERSION:?set STACK_VERSION in .env}
     depends_on:
       setup:
         condition: service_completed_successfully
     environment:
       - ELASTICSEARCH_HOSTS=http://es01:9200
       - ELASTICSEARCH_USERNAME=kibana_system
-      - ELASTICSEARCH_PASSWORD=${KIBANA_PASSWORD}
-      - XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY=${KIBANA_ENCRYPTION_KEY}
+      - ELASTICSEARCH_PASSWORD=${KIBANA_PASSWORD:?set KIBANA_PASSWORD in .env}
+      - XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY=${KIBANA_ENCRYPTION_KEY:?set KIBANA_ENCRYPTION_KEY in .env}
     ports:
       - "127.0.0.1:5601:5601"
 
