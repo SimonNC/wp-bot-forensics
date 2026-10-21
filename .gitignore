@@ -1,0 +1,11 @@
+.env
+data/raw/
+data/processed/
+data/geo/
+*.mmdb
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+.ipynb_checkpoints/
