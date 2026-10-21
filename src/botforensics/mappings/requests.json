@@ -1,0 +1,28 @@
+{
+  "settings": {"number_of_shards": 1, "number_of_replicas": 0},
+  "mappings": {
+    "dynamic": "strict",
+    "properties": {
+      "@timestamp": {"type": "date"},
+      "ip_hash": {"type": "keyword"},
+      "asn": {"type": "long"},
+      "as_org": {"type": "keyword"},
+      "country": {"type": "keyword"},
+      "is_datacenter": {"type": "boolean"},
+      "method": {"type": "keyword"},
+      "path": {"type": "keyword", "ignore_above": 1024},
+      "path_category": {"type": "keyword"},
+      "has_query": {"type": "boolean"},
+      "status": {"type": "short"},
+      "size": {"type": "long"},
+      "referer": {"type": "keyword", "ignore_above": 1024},
+      "user_agent": {"type": "keyword", "ignore_above": 1024,
+                     "fields": {"text": {"type": "text"}}},
+      "ua_kind": {"type": "keyword"},
+      "bot_name": {"type": "keyword"},
+      "chrome_major": {"type": "short"},
+      "is_internal_ua": {"type": "boolean"},
+      "actor_category": {"type": "keyword"}
+    }
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "settings": {"number_of_shards": 1, "number_of_replicas": 0},
+  "mappings": {
+    "dynamic": "strict",
+    "properties": {
+      "@timestamp": {"type": "date"},
+      "ip_hash": {"type": "keyword"},
+      "asn": {"type": "long"},
+      "as_org": {"type": "keyword"},
+      "country": {"type": "keyword"},
+      "event": {"type": "keyword"},
+      "event_group": {"type": "keyword"},
+      "status": {"type": "keyword"},
+      "username_hash": {"type": "keyword"},
+      "url": {"type": "keyword", "ignore_above": 1024}
+    }
+  }
+}
