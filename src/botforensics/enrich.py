@@ -34,16 +34,23 @@ KNOWN_BOTS = ["Googlebot", "bingbot", "Applebot", "YandexBot", "DuckDuckBot", "B
               "GPTBot", "OAI-SearchBot", "ChatGPT-User", "ClaudeBot", "PerplexityBot",
               "Amazonbot", "AhrefsBot", "SemrushBot", "MJ12bot", "DotBot", "PetalBot",
               "Bytespider", "facebookexternalhit", "Jetpack", "UptimeRobot", "Uptime-Kuma"]
-GENERIC_BOT_RE = re.compile(r"([\w.-]*(?:bot|crawler|spider|scanner)[\w.-]*)", re.I)
+# A product token ending in bot/crawler/spider/scanner ("EvilBot/1.0", "Foo Spider)"),
+# never a word inside a URL ("+http://ahrefs.com/robot/").
+GENERIC_BOT_RE = re.compile(r"(?<![\w.-])([\w.-]*(?:bot|crawler|spider|scanner))(?=[/;)]|$)",
+                            re.I)
+URL_RE = re.compile(r"\+?https?://\S*", re.I)
+NOT_BOTS = {"cubot"}  # phone brand
 CHROME_RE = re.compile(r"Chrome/(\d+)\.")
 MONITOR_RE = re.compile(r"Uptime-Kuma|UptimeRobot", re.I)
 
-DATACENTER_KEYWORDS = ("amazon", "aws", "microsoft", "azure", "google", "digitalocean", "ovh",
-                       "hetzner", "linode", "akamai", "contabo", "alibaba", "tencent", "oracle",
-                       "scaleway", "vultr", "choopa", "leaseweb", "m247", "hostinger", "ionos",
-                       "datacamp", "cloud", "hosting", "server", "data center", "datacenter",
-                       "colocation")
-# A declared crawler must come from its operator's network.
+# Explicit hosting providers only: generic words ("cloud", "server", "hosting") also match
+# ISPs and CDNs.
+DATACENTER_KEYWORDS = ("amazon", "aws", "microsoft", "azure", "google llc", "google cloud",
+                       "digitalocean", "ovh", "hetzner", "linode", "contabo", "alibaba", "tencent",
+                       "oracle", "scaleway", "vultr", "choopa", "leaseweb", "m247", "hostinger",
+                       "ionos", "datacamp", "data center", "datacenter", "colocation")
+# A declared crawler is verified only when it comes from its operator's network. Necessary,
+# not sufficient: a rented cloud VM also belongs to "Google LLC" or "Microsoft".
 BOT_ASN = {
     "Googlebot": ("google",),
     "bingbot": ("microsoft",),
@@ -102,9 +109,9 @@ def classify_ua(ua: str | None) -> tuple[str, str | None]:
             return "declared_bot", name
     if TOOL_RE.search(ua):
         return "tool", None
-    m = GENERIC_BOT_RE.search(ua)
-    if m:
-        return "declared_bot", m.group(1)
+    for m in GENERIC_BOT_RE.finditer(URL_RE.sub(" ", ua)):
+        if m.group(1).lower() not in NOT_BOTS:
+            return "declared_bot", m.group(1)
     if ua.startswith("Mozilla/"):
         return "browser", None
     return "other", None

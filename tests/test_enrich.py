@@ -59,6 +59,18 @@ def test_classify_path(path, expected):
         ("python-requests/2.32", ("tool", None)),
         ("Mozilla/5.0 (Windows NT 10.0) Chrome/155.0.0.0 Safari/537.36", ("browser", None)),
         ("WordPress/7.1.3; https://site.example", ("other", None)),
+        # A phone brand, not a bot.
+        ("Mozilla/5.0 (Linux; Android 10; CUBOT X30) AppleWebKit/537.36 Chrome/150.0.0.0",
+         ("browser", None)),
+        ("Mozilla/5.0 (Linux; Android 13; CUBOT) AppleWebKit/537.36", ("browser", None)),
+        ("Mozilla/5.0 (compatible; EvilBot/1.0)", ("declared_bot", "EvilBot")),
+        ("Mozilla/5.0 (compatible; Foo Spider)", ("declared_bot", "Spider")),
+        # A bot word inside a URL is not a product token.
+        ("Mozilla/5.0 (compatible; AhrefsSiteAudit/6.1; +http://ahrefs.com/robot/)",
+         ("browser", None)),
+        ("Mozilla/5.0 (compatible; Foo/1.0; https://foo.example/crawler)", ("browser", None)),
+        ("Mozilla/5.0 (X11; Linux) Chrome/150.0 Safari/537.36 abbotsford.example",
+         ("browser", None)),
     ],
 )
 def test_classify_ua(ua, expected):
@@ -76,6 +88,11 @@ def test_is_datacenter():
     assert is_datacenter("OVH SAS")
     assert not is_datacenter("Orange")
     assert not is_datacenter(None)
+    assert is_datacenter("Google LLC")
+    # Generic words matched ISPs and CDNs, not hosting providers.
+    for org in ("Cloud Fiber Ltd", "Server Telecom", "Akamai Technologies", "Web Hosting NC",
+                "Google Fiber Inc."):
+        assert not is_datacenter(org), org
 
 
 def test_bot_asn_consistent():

@@ -35,7 +35,12 @@ def cat(**overrides):
          "credential_attack"),
         ({"ua_kind": "declared_bot", "bot_name": "Googlebot", "as_org": "Google LLC"},
          "verified_crawler"),
-        ({"ua_kind": "declared_bot", "bot_name": "SomeNewBot"}, "verified_crawler"),
+        # Unverifiable declared bots (unknown operator or no network info) are generic bots.
+        ({"ua_kind": "declared_bot", "bot_name": "SomeNewBot"}, "generic_bot"),
+        ({"ua_kind": "declared_bot", "bot_name": "Googlebot", "as_org": None}, "generic_bot"),
+        # Form spam beats a verified identity.
+        ({"ua_kind": "declared_bot", "bot_name": "Jetpack", "as_org": "Automattic, Inc",
+          "form_posts": 3}, "form_spam"),
         ({"ua_kind": "declared_bot", "bot_name": "Googlebot", "as_org": "Hetzner Online GmbH"},
          "spoofed_crawler"),
         ({"login_posts_10min_max": 15, "login_posts": 15}, "credential_attack"),
@@ -54,7 +59,11 @@ def cat(**overrides):
         ({"chrome_major_min": 120.0}, "generic_bot"),
         ({"peak_rpm": 45}, "generic_bot"),
         ({"cv_interarrival": 0.02, "n_requests": 30}, "generic_bot"),
-        ({"is_datacenter": True, "as_org": "Microsoft Corporation"}, "generic_bot"),
+        # A datacenter network alone is not enough to call an actor a bot.
+        ({"is_datacenter": True, "as_org": "Microsoft Corporation"}, "unknown"),
+        ({"is_datacenter": True, "as_org": "OVH SAS", "ua_kind": "tool"}, "generic_bot"),
+        # A logged-in session does not excuse sensitive probes.
+        ({"cerber_verdict": "logged_in", "sensitive_probes": 2}, "vuln_scanner"),
     ],
 )
 def test_classify(overrides, expected):
@@ -75,6 +84,29 @@ def test_spoofed_attacker_keeps_spoofing_in_reasons():
                             login_posts=15)
     assert category == "credential_attack"
     assert any(r.startswith("Googlebot_from=") for r in reasons)
+
+
+def test_unverified_declared_bot_reason():
+    category, reasons = cat(ua_kind="declared_bot", bot_name="EvilBot", as_org="OVH SAS")
+    assert category == "generic_bot"
+    assert reasons == ["declared=EvilBot(unverified)"]
+
+
+def test_verified_crawler_reason():
+    category, reasons = cat(ua_kind="declared_bot", bot_name="Googlebot", as_org="Google LLC")
+    assert category == "verified_crawler"
+    assert "declared=Googlebot" in reasons
+
+
+def test_datacenter_only_actor_keeps_reason():
+    category, reasons = cat(is_datacenter=True, as_org="Microsoft Corporation")
+    assert category == "unknown"
+    assert reasons == ["datacenter=Microsoft Corporation"]
+
+
+def test_categories_in_precedence_order():
+    assert CATEGORIES == ["internal", "credential_attack", "vuln_scanner", "spoofed_crawler",
+                          "form_spam", "verified_crawler", "generic_bot", "unknown"]
 
 
 def test_nan_values_do_not_trigger():

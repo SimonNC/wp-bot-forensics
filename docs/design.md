@@ -69,7 +69,7 @@ data/raw/*.log.gz              data/raw/cerber/*.csv
 | 6 | Distributed campaigns: same UA and target across IPs in a window | Stuffing spreads attempts to stay under per-IP limits. |
 | 7 | UA missing, tool (`curl`, `python-requests`…) or outdated browser | Bot kits freeze a UA; browsers auto-update. |
 | 8 | Declared bot vs. ASN (Googlebot from Google, Jetpack from Automattic) | Claiming a name is free, owning the IP is not. |
-| 9 | Datacenter ASN | Real visitors browse from ISPs, not cloud servers. |
+| 9 | Datacenter ASN (explicit hosting providers only) | Real visitors browse from ISPs, not cloud servers. Evidence only: never enough on its own to call an actor a bot. |
 | 10 | `robots.txt` / sitemap reads | Only crawlers read them (declared, polite bots). |
 | 11 | No referer on HTML pages | Humans arrive from links or search engines. |
 | 12 | Night activity in local time (UTC+11) | Weak signal, used as support only. |
@@ -91,10 +91,24 @@ Rules are applied in order; each returns its reasons (e.g.
 2. `credential_attack` — indicators 5–6
 3. `vuln_scanner` — indicators 3–4
 4. `spoofed_crawler` — declared bot, inconsistent ASN
-5. `verified_crawler` — declared bot, consistent ASN (only when no attack signal fires)
-6. `form_spam` — indicator 13
-7. `generic_bot` — tool/missing UA, abnormal rhythm, datacenter
+5. `form_spam` — indicator 13 (wins over a verified crawler identity)
+6. `verified_crawler` — declared bot from its operator's network (only when no attack
+   or form signal fires)
+7. `generic_bot` — tool/missing UA, outdated browser, abnormal rhythm, or a declared bot
+   that cannot be verified (reason `declared=<name>(unverified)`). A datacenter network
+   is recorded as a reason but is not sufficient on its own.
 8. `unknown` — everything else (probable human)
+
+**Crawler verification** means "comes from a known operator network": the declared
+name must be in the bot → ASN table and the IP's AS organisation must match it.
+A declared bot outside that table, or without AS information, is a `generic_bot`
+(declared, unverified), not a verified crawler. The ASN check is necessary but not
+sufficient: a rented Google Cloud VM is also "Google LLC". Matching the operators'
+published crawler IP ranges (or reverse-DNS) is future work.
+
+A declared bot name is a product token in the user-agent (`EvilBot/1.0`,
+`Foo Spider)`), never a word inside a URL (`+http://ahrefs.com/robot/`) nor the
+CUBOT phone brand.
 
 Attack behaviour is ranked before identity claims, because a declared crawler name is
 trivially spoofed (e.g. a fake "Jetpack" UA used for XML-RPC credential stuffing); the

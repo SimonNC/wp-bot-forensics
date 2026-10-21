@@ -6,10 +6,12 @@ import pandas as pd
 
 from botforensics.enrich import bot_asn_consistent
 
-CATEGORIES = ["internal", "verified_crawler", "spoofed_crawler", "credential_attack",
-              "vuln_scanner", "form_spam", "generic_bot", "unknown"]
+# In precedence order: the first matching category wins.
+CATEGORIES = ["internal", "credential_attack", "vuln_scanner", "spoofed_crawler", "form_spam",
+              "verified_crawler", "generic_bot", "unknown"]
 
-CURRENT_CHROME_MAJOR = 155  # Chrome stable in October 2026
+# Chrome stable in October 2026 (checked 2026-10-21); bump it when re-running on later logs.
+CURRENT_CHROME_MAJOR = 155
 OUTDATED_CHROME_GAP = 12    # about a year of 4-week releases
 LOGIN_BURST = 10            # login POSTs in one 10-minute window
 LOGIN_VOLUME = 20           # login POSTs over the whole period
@@ -19,8 +21,9 @@ METRONOMIC_CV = 0.1         # coefficient of variation of inter-arrival times
 CREDENTIAL = {"login_burst", "login_volume", "campaign"}
 SCANNER = {"sensitive_probe", "high_4xx"}
 FORM = {"form_refused", "form_repeat"}
-GENERIC = {"ua_missing", "ua_tool", "outdated_chrome", "high_rate", "metronomic", "datacenter",
-           "declared_bot"}
+# "datacenter" is evidence, not enough on its own to call an actor a bot.
+GENERIC = {"ua_missing", "ua_tool", "outdated_chrome", "high_rate", "metronomic",
+           "unverified_bot"}
 
 
 def _present(value) -> bool:
@@ -39,8 +42,14 @@ def signals(a: Mapping) -> dict[str, str]:
     if verdict == "logged_in":
         s["cerber_logged_in"] = "cerber=logged_in"
     if a["ua_kind"] == "declared_bot":
-        s["declared_bot"] = f"declared={a['bot_name']}"
-        if bot_asn_consistent(a["bot_name"], a["as_org"]) is False:
+        consistent = bot_asn_consistent(a["bot_name"], a["as_org"])
+        if consistent is None:  # unknown operator or no network information
+            s["unverified_bot"] = f"declared={a['bot_name']}(unverified)"
+        else:
+            s["declared_bot"] = f"declared={a['bot_name']}"
+        if consistent is True:
+            s["verified_bot"] = f"verified_network={a['as_org']}"
+        elif consistent is False:
             s["bot_asn_mismatch"] = f"{a['bot_name']}_from={a['as_org']}"
     if a["login_posts_10min_max"] >= LOGIN_BURST:
         s["login_burst"] = f"login_posts_10min={a['login_posts_10min_max']}"
@@ -89,10 +98,10 @@ def classify(a: Mapping) -> tuple[str, list[str]]:
         category = "vuln_scanner"
     elif "bot_asn_mismatch" in fired:
         category = "spoofed_crawler"
-    elif "declared_bot" in fired:
-        category = "verified_crawler"
     elif fired & FORM:
         category = "form_spam"
+    elif "verified_bot" in fired:
+        category = "verified_crawler"
     elif fired & GENERIC:
         category = "generic_bot"
     else:
