@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "wp-bot-forensics"
+version = "0.1.0"
+description = "Bot traffic detection and classification in real WordPress access logs"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Simon Jorite" }]
+dependencies = [
+  "pandas>=2.2",
+  "pyarrow>=15",
+  "duckdb>=1.1",
+  "scikit-learn>=1.5",
+  "maxminddb>=2.6",
+  "elasticsearch>=8.15,<9",
+  "requests>=2.32",
+  "python-dotenv>=1.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff>=0.6"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+botforensics = ["mappings/*.json"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
