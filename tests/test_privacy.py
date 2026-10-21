@@ -70,6 +70,14 @@ def test_redactor_author_archive_usernames():
     assert r("/coauthor/x") == "/coauthor/x"
 
 
+def test_redactor_author_encoded_and_odd_forms():
+    r = Redactor("", "", "")
+    for path in ("/%61uthor/jdoe", "/author%2Fjdoe", "/author//jdoe", "/AUTHOR/jdoe/"):
+        assert "jdoe" not in r(path)
+    assert r("/author//jdoe") == "/author/<author>"
+    assert r("/coauthor/x") == "/coauthor/x"
+
+
 def test_redactor_domain_case_insensitive():
     r = Redactor("site.example", "site.example", "")
     assert r("https://site.example/") == "https://site.example/"

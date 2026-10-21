@@ -10,7 +10,7 @@ PSEUDO_PREFIX = "ip-"
 CUSTOM_LOGIN = "/<custom-login>"
 AUTHOR = "<author>"
 # WordPress author archives expose usernames: /author/<login>/.
-AUTHOR_RE = re.compile(r"(/author/)[^/?#\s]+", re.I)
+AUTHOR_RE = re.compile(r"(/author/)/*[^/?#\s]+", re.I)
 
 
 def pseudonymise(value: str, key: str, prefix: str = PSEUDO_PREFIX) -> str:
@@ -61,6 +61,10 @@ class Redactor:
             decoded = unquote(text)
             if self.slug_re.search(decoded):
                 text = self.slug_re.sub(CUSTOM_LOGIN, decoded)
+        decoded = unquote(text)
+        # Encoded forms (/%61uthor/x, /author%2Fx): keep the decoded form only when it matches.
+        if AUTHOR_RE.search(decoded):
+            text = decoded
         text = AUTHOR_RE.sub(rf"\g<1>{AUTHOR}", text)
         if self.domain_re:
             text = self.domain_re.sub(self.site_label, text)

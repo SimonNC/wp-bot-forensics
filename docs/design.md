@@ -155,6 +155,11 @@ python scripts/import_dashboard.py
   logs, or every browser will slowly look outdated.
 - Crawler verification relies on the AS organisation only (see Classification);
   published crawler IP ranges are not checked yet.
+- Crawler verification is ASN-based only; checking published IP ranges or reverse DNS is
+  future work.
+- Campaign detection is keyed on the target, so on a busier site a burst of legitimate
+  logins could be flagged.
+- Slug redaction matches path segments (`/slug`, `/slug/`), not file names such as `slug.php`.
 - `classify_path` decodes percent-escapes and collapses repeated slashes before
   classifying (`/%2eenv`, `//xmlrpc.php`); the stored path stays as logged.
 
