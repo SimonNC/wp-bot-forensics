@@ -7,7 +7,7 @@
 **Bot fraud investigation on real attack traffic, by Simon Jorite, former fraud analyst
 (Fia-Net, BetClic).** One week of production logs from a small business's WordPress site,
 analysed end to end: who attacks it, how to prove it, and how good the detection is.
-Python, SQL, Elasticsearch and Kibana. [LinkedIn](LINKEDIN_URL)
+Python, SQL, Elasticsearch and Kibana. [LinkedIn](https://www.linkedin.com/in/simonjorite/)
 
 **Short on time? Read the one-page [threat report](REPORT.md).**
 
