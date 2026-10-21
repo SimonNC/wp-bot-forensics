@@ -1,6 +1,7 @@
 """IP → ASN / country lookups (DB-IP Lite mmdb) with a sidecar for pseudonymised samples."""
 
 import csv
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -19,8 +20,16 @@ class IpInfo:
 EMPTY_INFO = IpInfo(None, None, None)
 
 
+logger = logging.getLogger(__name__)
+
+
 def _open(path: Path | None):
-    return maxminddb.open_database(str(path)) if path and Path(path).exists() else None
+    if not path:
+        return None
+    if not Path(path).exists():
+        logger.warning("GeoIP database not found: %s", path)
+        return None
+    return maxminddb.open_database(str(path))
 
 
 class GeoLookup:

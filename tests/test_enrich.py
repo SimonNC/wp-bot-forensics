@@ -91,6 +91,8 @@ def test_is_internal_ua():
     # Pingback floods come from other WordPress sites: not internal.
     assert not is_internal_ua("WordPress/6.0; https://other.example", "site.example")
     assert not is_internal_ua(None, "site.example")
+    assert not is_internal_ua("WordPress/7.1.3; https://site.example.evil.example", "site.example")
+    assert is_internal_ua("WordPress/7.1.3; https://site.example/", "site.example")
 
 
 def test_enrich_requests_pseudonymises_and_redacts():

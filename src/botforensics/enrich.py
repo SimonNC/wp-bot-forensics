@@ -131,7 +131,9 @@ def is_internal_ua(ua: str | None, site_label: str) -> bool:
         return False
     if MONITOR_RE.search(ua):
         return True
-    return ua.startswith("WordPress/") and bool(site_label) and site_label in ua
+    if not site_label:
+        return False
+    return re.fullmatch(rf"WordPress/[\d.]+; https?://{re.escape(site_label)}/?", ua) is not None
 
 
 def enrich_requests(requests: Iterable[Request], geo: GeoLookup, key: str, redact: Redactor,

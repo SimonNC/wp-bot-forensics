@@ -12,6 +12,9 @@ def test_sidecar_roundtrip_and_lookup(tmp_path):
     assert geo.lookup("ip-ffffffffffffffff") == EMPTY_INFO
 
 
-def test_missing_databases_return_empty(tmp_path):
-    geo = GeoLookup(tmp_path / "nope.mmdb", tmp_path / "nope2.mmdb")
+def test_missing_databases_return_empty(tmp_path, caplog):
+    with caplog.at_level("WARNING", logger="botforensics.geo"):
+        geo = GeoLookup(tmp_path / "nope.mmdb", tmp_path / "nope2.mmdb")
+    assert "nope.mmdb" in caplog.text
+    assert "nope2.mmdb" in caplog.text
     assert geo.lookup("203.0.113.7") == EMPTY_INFO
